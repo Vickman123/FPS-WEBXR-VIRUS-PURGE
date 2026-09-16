@@ -3,7 +3,7 @@ import { Weapon } from './Weapon';
 import { Pistol } from './Pistol';
 
 export class WeaponManager {
-  private activeWeapon: Weapon;
+  private activeWeapon: Pistol;
   private weapons: Weapon[] = [];
   public weaponParent: THREE.Object3D | null = null;
 
@@ -14,11 +14,18 @@ export class WeaponManager {
   }
 
   public attachTo(parent: THREE.Object3D): void {
+    if (this.weaponParent && this.activeWeapon.model.parent === this.weaponParent) {
+      this.weaponParent.remove(this.activeWeapon.model);
+    }
     this.weaponParent = parent;
     parent.add(this.activeWeapon.model);
   }
 
-  public getActiveWeapon(): Weapon {
+  public setVRMode(inVR: boolean): void {
+    this.activeWeapon.setVRMode(inVR);
+  }
+
+  public getActiveWeapon(): Pistol {
     return this.activeWeapon;
   }
 

@@ -2,8 +2,10 @@ import * as THREE from 'three';
 import { InputManager } from '../input/InputManager';
 import { Arena } from '../world/Arena';
 import { WeaponManager } from '../weapons/WeaponManager';
+import { VRInput } from '../input/VRInput';
 
 export class Player {
+  public playerGroup: THREE.Group;
   public camera: THREE.PerspectiveCamera;
   public position: THREE.Vector3;
   private velocity: THREE.Vector3 = new THREE.Vector3();
@@ -16,15 +18,16 @@ export class Player {
   private friction: number = 9.0;
   private eyeHeight: number = 1.68;
 
-  // Rotaciones de cámara (inicialmente mirando hacia el centro de la arena en -Z)
+  // Rotaciones de cámara en PC
   private pitch: number = 0;
   private yaw: number = 0;
 
   // Balanceo del arma al caminar
   private walkCycle: number = 0;
-
-  // Tiempo de inmunidad breve tras recibir daño (evita insta-kill de múltiples enemigos)
   private invulnTimer: number = 0;
+
+  private isVR: boolean = false;
+  private vrInput: VRInput | null = null;
 
   private inputManager: InputManager;
   private arena: Arena;
@@ -46,21 +49,48 @@ export class Player {
     this.arena = arena;
     this.weaponManager = weaponManager;
 
-    this.position = this.arena.playerStart.clone();
-    this.position.y = this.eyeHeight;
-    this.camera.position.copy(this.position);
+    // Rig principal que contiene la cámara y los mandos VR
+    this.playerGroup = new THREE.Group();
+    this.playerGroup.position.copy(this.arena.playerStart);
+    this.position = this.playerGroup.position;
+
+    // Agregar cámara al rig
+    this.playerGroup.add(this.camera);
+    this.camera.position.set(0, this.eyeHeight, 0);
 
     this.updateCameraRotation();
 
-    // Acoplar arma a la cámara en primera persona
+    // En modo desktop, acoplar el arma a la cámara
     this.weaponManager.attachTo(this.camera);
+  }
+
+  public setVRMode(inVR: boolean, vrInput?: VRInput): void {
+    this.isVR = inVR;
+    this.vrInput = vrInput || null;
+    this.weaponManager.setVRMode(inVR);
+
+    if (inVR && vrInput) {
+      // En VR, acoplar el arma a la mano derecha física
+      this.weaponManager.attachTo(vrInput.rightGrip);
+      this.camera.position.set(0, 0, 0); // El tracking de Meta Quest gestiona la altura real de pie
+    } else {
+      // En PC, acoplar el arma a la cámara
+      this.weaponManager.attachTo(this.camera);
+      this.camera.position.set(0, this.eyeHeight, 0);
+      this.updateCameraRotation();
+    }
   }
 
   public takeDamage(amount: number): void {
     if (this.isDead || this.invulnTimer > 0) return;
 
-    this.invulnTimer = 0.5; // Medio segundo de gracia entre golpes
+    this.invulnTimer = 0.5;
     this.health -= amount;
+
+    if (this.isVR && this.vrInput) {
+      this.vrInput.triggerHaptic(0.9, 100, 'right');
+      this.vrInput.triggerHaptic(0.9, 100, 'left');
+    }
 
     if (this.onHurt) {
       this.onHurt();
@@ -83,12 +113,14 @@ export class Player {
     this.health = this.maxHealth;
     this.isDead = false;
     this.invulnTimer = 1.0;
-    this.position.copy(this.arena.playerStart);
-    this.position.y = this.eyeHeight;
+    this.playerGroup.position.copy(this.arena.playerStart);
     this.velocity.set(0, 0, 0);
-    this.pitch = 0;
-    this.yaw = 0;
-    this.updateCameraRotation();
+
+    if (!this.isVR) {
+      this.pitch = 0;
+      this.yaw = 0;
+      this.updateCameraRotation();
+    }
 
     if (this.onHealthChange) {
       this.onHealthChange(this.health, this.maxHealth);
@@ -102,26 +134,33 @@ export class Player {
 
     if (this.isDead) return;
 
-    // 1. Manejar rotación de cámara (Mouse Look / PC)
-    const look = this.inputManager.getLookDelta();
-    this.yaw -= look.x;
-    this.pitch -= look.y;
+    if (!this.isVR) {
+      // Control de cámara en PC (Mouse Look)
+      const look = this.inputManager.getLookDelta();
+      this.yaw -= look.x;
+      this.pitch -= look.y;
 
-    const maxPitch = (Math.PI / 2) - 0.05;
-    this.pitch = Math.max(-maxPitch, Math.min(maxPitch, this.pitch));
+      const maxPitch = (Math.PI / 2) - 0.05;
+      this.pitch = Math.max(-maxPitch, Math.min(maxPitch, this.pitch));
 
-    this.inputManager.resetLookDelta();
-    this.updateCameraRotation();
+      this.inputManager.resetLookDelta();
+      this.updateCameraRotation();
+    }
 
-    // 2. Manejar movimiento (WASD)
+    // Movimiento (desacoplado: funciona con WASD en PC o Joystick en VR)
     const move = this.inputManager.getMovement();
-
-    const forward = new THREE.Vector3(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
-    const right = new THREE.Vector3(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
-
     const wishDir = new THREE.Vector3();
-    wishDir.addScaledVector(forward, move.z);
-    wishDir.addScaledVector(right, move.x);
+
+    if (this.isVR) {
+      // En VR, move ya viene orientado al HMD (cabeza)
+      wishDir.set(move.x, 0, move.z);
+    } else {
+      // En PC, orientar según el yaw de la cámara
+      const forward = new THREE.Vector3(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
+      const right = new THREE.Vector3(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
+      wishDir.addScaledVector(forward, move.z);
+      wishDir.addScaledVector(right, move.x);
+    }
 
     if (wishDir.lengthSq() > 0.001) {
       wishDir.normalize();
@@ -136,14 +175,17 @@ export class Player {
     this.velocity.x -= this.velocity.x * this.friction * delta;
     this.velocity.z -= this.velocity.z * this.friction * delta;
 
+    // Aplicar desplazamiento a la posición mundial del jugador
     this.position.x += this.velocity.x * delta;
     this.position.z += this.velocity.z * delta;
 
-    // Resolver colisión contra paredes y cajas
+    // Colisión contra la arena
     this.arena.resolveCollision(this.position, 0.45);
 
-    const bobOffset = Math.sin(this.walkCycle) * 0.02;
-    this.camera.position.set(this.position.x, this.eyeHeight + bobOffset, this.position.z);
+    if (!this.isVR) {
+      const bobOffset = Math.sin(this.walkCycle) * 0.02;
+      this.camera.position.set(0, this.eyeHeight + bobOffset, 0);
+    }
   }
 
   public updateCameraRotation(): void {
@@ -153,10 +195,21 @@ export class Player {
     this.camera.quaternion.setFromEuler(euler);
   }
 
+  /**
+   * Obtiene el rayo de disparo:
+   * - En VR: Dirección exacta de la mano derecha física (Right Controller)
+   * - En PC: Centro de la cámara
+   */
   public getShootRay(): { origin: THREE.Vector3; direction: THREE.Vector3 } {
+    if (this.isVR && this.vrInput) {
+      return this.vrInput.getAimRay();
+    }
+
     const direction = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion);
+    const origin = new THREE.Vector3();
+    this.camera.getWorldPosition(origin);
     return {
-      origin: this.camera.position.clone(),
+      origin,
       direction: direction.normalize()
     };
   }

@@ -38,6 +38,41 @@ body, html {
   z-index: 1;
 }
 
+/* WebXR VR Button Styling */
+#VRButton, #vr-button-meta {
+  position: fixed !important;
+  bottom: 25px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  z-index: 9999 !important;
+  background: linear-gradient(90deg, rgba(0, 243, 255, 0.2), rgba(0, 210, 255, 0.4)) !important;
+  border: 2px solid var(--primary-cyan) !important;
+  color: #ffffff !important;
+  font-family: var(--font-display) !important;
+  font-size: 15px !important;
+  font-weight: 900 !important;
+  letter-spacing: 2.5px !important;
+  padding: 14px 28px !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  backdrop-filter: blur(10px) !important;
+  box-shadow: 0 0 25px rgba(0, 243, 255, 0.45) !important;
+  animation: vr-pulse 2s infinite alternate !important;
+  text-transform: uppercase !important;
+  opacity: 1 !important;
+}
+
+#VRButton:hover, #vr-button-meta:hover {
+  background: linear-gradient(90deg, #00d2ff, #00f3ff) !important;
+  color: #050a14 !important;
+  box-shadow: 0 0 35px var(--primary-cyan) !important;
+}
+
+@keyframes vr-pulse {
+  from { box-shadow: 0 0 15px rgba(0, 243, 255, 0.3); border-color: rgba(0, 243, 255, 0.6); }
+  to { box-shadow: 0 0 32px rgba(0, 243, 255, 0.85); border-color: #00f3ff; }
+}
+
 /* Crosshair */
 #crosshair-container {
   position: absolute;

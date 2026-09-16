@@ -4,17 +4,25 @@ import { Weapon } from './Weapon';
 export class Pistol extends Weapon {
   private recoilOffset: THREE.Vector3 = new THREE.Vector3();
   private recoilRotation: THREE.Euler = new THREE.Euler();
-  // Posicionado ergonómicamente en la esquina inferior derecha del campo de visión
-  private basePosition: THREE.Vector3 = new THREE.Vector3(0.26, -0.24, -0.5);
-  private baseRotation: THREE.Euler = new THREE.Euler(0, 0, 0);
+
+  // Posición desktop en primera persona
+  private desktopPosition: THREE.Vector3 = new THREE.Vector3(0.26, -0.24, -0.5);
+  private desktopRotation: THREE.Euler = new THREE.Euler(0, 0, 0);
+
+  // Posición ajustada para el mando VR de Meta Quest (encaja en la mano física)
+  private vrPosition: THREE.Vector3 = new THREE.Vector3(0, -0.03, -0.07);
+  private vrRotation: THREE.Euler = new THREE.Euler(-Math.PI / 5, 0, 0);
+
+  private isVR: boolean = false;
 
   private muzzleLight: THREE.PointLight;
   private muzzleFlashMesh: THREE.Mesh;
+  private laserSight: THREE.Line;
   private flashTimer: number = 0;
 
   constructor() {
     super({
-      name: 'CYBER PISTOL // V1',
+      name: 'ANTIVIRUS CANNON // V1',
       damage: 40,
       headshotMultiplier: 2.5,
       fireRate: 0.18,
@@ -24,15 +32,16 @@ export class Pistol extends Weapon {
 
     this.muzzleLight = new THREE.PointLight(0x00f3ff, 0, 8);
     this.muzzleFlashMesh = this.buildMuzzleFlash();
+    this.laserSight = this.buildLaserSight();
     this.buildModel();
 
-    this.model.position.copy(this.basePosition);
+    this.model.position.copy(this.desktopPosition);
   }
 
   private buildModel(): void {
     const gunGroup = new THREE.Group();
 
-    // Materiales de alta definición y contraste
+    // Materiales
     const darkMetal = new THREE.MeshStandardMaterial({
       color: 0x1e293b,
       roughness: 0.25,
@@ -58,33 +67,32 @@ export class Pistol extends Weapon {
       opacity: 0.7
     });
 
-    // 1. Empuñadura (Grip)
-    const gripGeo = new THREE.BoxGeometry(0.05, 0.16, 0.08);
+    // 1. Empuñadura ergonómica
+    const gripGeo = new THREE.BoxGeometry(0.048, 0.16, 0.08);
     const grip = new THREE.Mesh(gripGeo, darkMetal);
     grip.position.set(0, -0.07, 0.05);
     grip.rotation.x = 0.28;
     gunGroup.add(grip);
 
-    // Celda de energía luminosa en el cargador
+    // Celda de energía luminosa
     const cellGeo = new THREE.BoxGeometry(0.024, 0.09, 0.03);
     const cell = new THREE.Mesh(cellGeo, cyanGlow);
     cell.position.set(0, -0.07, 0.05);
     cell.rotation.x = 0.28;
     gunGroup.add(cell);
 
-    // 2. Chasis superior / Corredera (Slide)
+    // 2. Chasis superior / Corredera
     const slideGeo = new THREE.BoxGeometry(0.065, 0.075, 0.28);
     const slide = new THREE.Mesh(slideGeo, frameMetal);
     slide.position.set(0, 0.02, -0.05);
     gunGroup.add(slide);
 
-    // Ranuras de disipación de calor emisivas laterales
     const slatGeo = new THREE.BoxGeometry(0.068, 0.015, 0.2);
     const slat = new THREE.Mesh(slatGeo, cyanGlow);
     slat.position.set(0, 0.035, -0.05);
     gunGroup.add(slat);
 
-    // 3. Cañón de plasma cilíndrico
+    // 3. Cañón cilíndrico de plasma
     const barrelGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.16, 16);
     const barrel = new THREE.Mesh(barrelGeo, darkMetal);
     barrel.rotation.x = Math.PI / 2;
@@ -107,23 +115,23 @@ export class Pistol extends Weapon {
     sightLens.position.set(0, 0.105, -0.03);
     gunGroup.add(sightLens);
 
-    // Punto holográfico central
     const dotGeo = new THREE.SphereGeometry(0.003, 8, 8);
     const dot = new THREE.Mesh(dotGeo, cyanGlow);
     dot.position.set(0, 0.105, -0.03);
     gunGroup.add(dot);
 
-    // 5. Muzzle point (salida del cañón)
+    // 5. Muzzle point
     this.muzzleObject.position.set(0, 0.02, -0.27);
     gunGroup.add(this.muzzleObject);
 
-    // Luz dinámica del disparo
     this.muzzleLight.position.set(0, 0.02, -0.27);
     gunGroup.add(this.muzzleLight);
 
-    // Destello visual (Muzzle flash)
     this.muzzleFlashMesh.position.set(0, 0.02, -0.28);
     gunGroup.add(this.muzzleFlashMesh);
+
+    // Puntero láser táctico para VR
+    gunGroup.add(this.laserSight);
 
     this.model.add(gunGroup);
   }
@@ -140,11 +148,40 @@ export class Pistol extends Weapon {
     return mesh;
   }
 
+  private buildLaserSight(): THREE.Line {
+    const points = [
+      new THREE.Vector3(0, 0.02, -0.27),
+      new THREE.Vector3(0, 0.02, -25.0)
+    ];
+    const geo = new THREE.BufferGeometry().setFromPoints(points);
+    const mat = new THREE.LineBasicMaterial({
+      color: 0x00f3ff,
+      transparent: true,
+      opacity: 0.45
+    });
+    const line = new THREE.Line(geo, mat);
+    line.visible = false; // Solo se activa en modo VR
+    return line;
+  }
+
+  public setVRMode(inVR: boolean): void {
+    this.isVR = inVR;
+    this.laserSight.visible = inVR;
+
+    if (inVR) {
+      this.model.position.copy(this.vrPosition);
+      this.model.rotation.copy(this.vrRotation);
+    } else {
+      this.model.position.copy(this.desktopPosition);
+      this.model.rotation.copy(this.desktopRotation);
+    }
+  }
+
   public override playRecoil(): void {
-    this.recoilOffset.z = 0.07;
-    this.recoilOffset.y = 0.025;
-    this.recoilRotation.x = 0.22;
-    this.recoilRotation.y = (Math.random() - 0.5) * 0.03;
+    this.recoilOffset.z = 0.055;
+    this.recoilOffset.y = 0.02;
+    this.recoilRotation.x = 0.20;
+    this.recoilRotation.y = (Math.random() - 0.5) * 0.025;
 
     this.muzzleLight.intensity = 25;
     this.muzzleFlashMesh.visible = true;
@@ -163,8 +200,7 @@ export class Pistol extends Weapon {
       }
     }
 
-    // Amortiguación elástica de retorno
-    const decaySpeed = 12;
+    const decaySpeed = 14;
     this.recoilOffset.lerp(new THREE.Vector3(0, 0, 0), delta * decaySpeed);
     this.recoilRotation.x = THREE.MathUtils.lerp(this.recoilRotation.x, 0, delta * decaySpeed);
     this.recoilRotation.y = THREE.MathUtils.lerp(this.recoilRotation.y, 0, delta * decaySpeed);
@@ -174,16 +210,19 @@ export class Pistol extends Weapon {
     if (this.isReloading) {
       const progress = 1 - this.reloadTimer / this.config.reloadTime;
       const arc = Math.sin(progress * Math.PI);
-      reloadRotX = -0.45 * arc;
-      reloadPosY = -0.15 * arc;
+      reloadRotX = -0.4 * arc;
+      reloadPosY = -0.12 * arc;
     }
 
-    this.model.position.x = this.basePosition.x + this.recoilOffset.x;
-    this.model.position.y = this.basePosition.y + this.recoilOffset.y + reloadPosY;
-    this.model.position.z = this.basePosition.z + this.recoilOffset.z;
+    const basePos = this.isVR ? this.vrPosition : this.desktopPosition;
+    const baseRot = this.isVR ? this.vrRotation : this.desktopRotation;
 
-    this.model.rotation.x = this.baseRotation.x + this.recoilRotation.x + reloadRotX;
-    this.model.rotation.y = this.baseRotation.y + this.recoilRotation.y;
-    this.model.rotation.z = this.baseRotation.z;
+    this.model.position.x = basePos.x + this.recoilOffset.x;
+    this.model.position.y = basePos.y + this.recoilOffset.y + reloadPosY;
+    this.model.position.z = basePos.z + this.recoilOffset.z;
+
+    this.model.rotation.x = baseRot.x + this.recoilRotation.x + reloadRotX;
+    this.model.rotation.y = baseRot.y + this.recoilRotation.y;
+    this.model.rotation.z = baseRot.z;
   }
 }
