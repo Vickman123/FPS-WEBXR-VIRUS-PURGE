@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PURGE - Arcade FPS</title>
+    <link rel="stylesheet" href="/src/style.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+  </head>
+  <body>
+    <!-- 3D Canvas Container -->
+    <div id="game-container"></div>
+
+    <!-- PC Crosshair & Hitmarker -->
+    <div id="crosshair-container">
+      <div class="crosshair-dot"></div>
+      <div class="crosshair-line top"></div>
+      <div class="crosshair-line bottom"></div>
+      <div class="crosshair-line left"></div>
+      <div class="crosshair-line right"></div>
+      <div id="hitmarker" class="hitmarker">
+        <div class="hm-line tl"></div>
+        <div class="hm-line tr"></div>
+        <div class="hm-line bl"></div>
+        <div class="hm-line br"></div>
+      </div>
+    </div>
+
+    <!-- Cyber HUD Overlay -->
+    <div id="hud">
+      <!-- Top Status Bar -->
+      <div class="hud-top">
+        <div class="hud-box score-box">
+          <span class="hud-label">PUNTUACIÓN</span>
+          <span id="score-display" class="hud-value">00000</span>
+        </div>
+        <div class="hud-box wave-box">
+          <span class="hud-label">ESTADO</span>
+          <span id="wave-display" class="hud-value cyber-glow">PURGE // MODO PRUEBA</span>
+        </div>
+        <div class="hud-box combo-box">
+          <span class="hud-label">COMBO</span>
+          <span id="combo-display" class="hud-value">x1.0</span>
+        </div>
+      </div>
+
+      <!-- Center floating alerts (Headshot, Combo, etc.) -->
+      <div id="combat-alerts"></div>
+
+      <!-- Bottom Status Bar -->
+      <div class="hud-bottom">
+        <!-- Health Section -->
+        <div class="hud-box health-box">
+          <div class="hud-label-group">
+            <span class="hud-label">INTEGRIDAD</span>
+            <span id="health-text" class="hud-label-val">100%</span>
+          </div>
+          <div class="bar-container">
+            <div id="health-bar" class="bar-fill"></div>
+          </div>
+        </div>
+
+        <!-- Weapon / Ammo Section -->
+        <div class="hud-box ammo-box">
+          <div class="weapon-name">CYBER PISTOL // V1</div>
+          <div class="ammo-counter">
+            <span id="ammo-current" class="ammo-current">12</span>
+            <span class="ammo-separator">/</span>
+            <span id="ammo-max" class="ammo-max">12</span>
+          </div>
+          <div id="reload-indicator" class="reload-indicator">RECARGANDO [R]</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Start / Pause / Instructions Overlay -->
+    <div id="overlay" class="overlay">
+      <div class="overlay-card">
+        <div class="cyber-badge">PROYECTO // VIRUS PURGE</div>
+        <h1 class="game-title">PURGE</h1>
+        <p class="subtitle">ARCADE FPS // SIMULADOR DE COMBATE</p>
+
+        <div class="controls-guide">
+          <div class="control-item"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span>Movimiento</span></div>
+          <div class="control-item"><kbd>MOUSE</kbd><span>Apuntar / Mirar</span></div>
+          <div class="control-item"><kbd>CLICK IZQ</kbd><span>Disparar</span></div>
+          <div class="control-item"><kbd>R</kbd><span>Recargar arma</span></div>
+          <div class="control-item"><kbd>ESC</kbd><span>Pausa / Liberar cursor</span></div>
+        </div>
+
+        <button id="start-btn" class="cyber-button">
+          <span class="btn-glitch"></span>
+          <span class="btn-text">INICIAR COMBATE</span>
+        </button>
+
+        <div id="vr-status" class="vr-notice">WebXR VR compatible detectado</div>
+      </div>
+    </div>
+
+    <!-- Damage Screen Flash Vignette -->
+    <div id="damage-vignette"></div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

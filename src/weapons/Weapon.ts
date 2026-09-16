@@ -1,0 +1,88 @@
+import * as THREE from 'three';
+
+export interface WeaponConfig {
+  name: string;
+  damage: number;
+  headshotMultiplier: number;
+  fireRate: number; // Intervalo en segundos entre disparos
+  magSize: number;
+  reloadTime: number;
+}
+
+export abstract class Weapon {
+  public config: WeaponConfig;
+  public currentAmmo: number;
+  public isReloading: boolean = false;
+  protected reloadTimer: number = 0;
+  protected fireCooldown: number = 0;
+
+  public model: THREE.Group;
+  public muzzleObject: THREE.Object3D;
+
+  public onAmmoChange?: (current: number, max: number) => void;
+  public onReloadStart?: () => void;
+  public onReloadEnd?: () => void;
+
+  constructor(config: WeaponConfig) {
+    this.config = config;
+    this.currentAmmo = config.magSize;
+    this.model = new THREE.Group();
+    this.muzzleObject = new THREE.Object3D();
+    this.model.add(this.muzzleObject);
+  }
+
+  public canFire(): boolean {
+    return !this.isReloading && this.fireCooldown <= 0 && this.currentAmmo > 0;
+  }
+
+  public fire(): boolean {
+    if (!this.canFire()) {
+      return false;
+    }
+    this.currentAmmo--;
+    this.fireCooldown = this.config.fireRate;
+    this.playRecoil();
+    if (this.onAmmoChange) {
+      this.onAmmoChange(this.currentAmmo, this.config.magSize);
+    }
+    return true;
+  }
+
+  public reload(): boolean {
+    if (this.isReloading || this.currentAmmo >= this.config.magSize) {
+      return false;
+    }
+    this.isReloading = true;
+    this.reloadTimer = this.config.reloadTime;
+    if (this.onReloadStart) {
+      this.onReloadStart();
+    }
+    return true;
+  }
+
+  public update(delta: number): void {
+    if (this.fireCooldown > 0) {
+      this.fireCooldown -= delta;
+    }
+
+    if (this.isReloading) {
+      this.reloadTimer -= delta;
+      if (this.reloadTimer <= 0) {
+        this.isReloading = false;
+        this.currentAmmo = this.config.magSize;
+        if (this.onAmmoChange) {
+          this.onAmmoChange(this.currentAmmo, this.config.magSize);
+        }
+        if (this.onReloadEnd) {
+          this.onReloadEnd();
+        }
+      }
+    }
+  }
+
+  public getMuzzleWorldPosition(target: THREE.Vector3): THREE.Vector3 {
+    return this.muzzleObject.getWorldPosition(target);
+  }
+
+  public abstract playRecoil(): void;
+}
