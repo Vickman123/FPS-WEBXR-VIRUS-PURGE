@@ -127,6 +127,11 @@ export class WaveManager {
     this.start();
   }
 
+  public stop(): void {
+    this.spawnQueue = [];
+    this.enemyManager.clearAll();
+  }
+
   private preparePhase(index: number): void {
     let config: PhaseConfig;
 

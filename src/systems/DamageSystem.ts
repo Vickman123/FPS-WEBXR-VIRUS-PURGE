@@ -6,6 +6,8 @@ import { AudioManager } from '../audio/AudioManager';
 import { ScoreManager } from './ScoreManager';
 import { Weapon } from '../weapons/Weapon';
 import { Arena } from '../world/Arena';
+import { TargetRange } from '../world/TargetRange';
+import { TargetDiana, DianaZone } from '../world/TargetDiana';
 
 export class DamageSystem {
   private raycaster: THREE.Raycaster;
@@ -14,6 +16,7 @@ export class DamageSystem {
   private audioManager: AudioManager;
   private scoreManager: ScoreManager;
   private arena: Arena;
+  public targetRange?: TargetRange;
 
   public onHitRegistered?: (isHeadshot: boolean, isShield?: boolean) => void;
 
@@ -42,9 +45,13 @@ export class DamageSystem {
     this.raycaster.far = 100;
 
     const enemyHitboxes = this.enemyManager.getAllHitboxes();
-    // Utilizar la caché optimizada de mallas de la arena
-    const potentialTargets = [...enemyHitboxes, ...this.arena.targetMeshes];
+    const rangeHitboxes = this.targetRange ? this.targetRange.getAllHitboxes() : [];
+    const potentialTargets = [...enemyHitboxes, ...rangeHitboxes, ...this.arena.targetMeshes];
     const intersections = this.raycaster.intersectObjects(potentialTargets, false);
+
+    if (this.targetRange && this.targetRange.isEnabled) {
+      this.targetRange.registerShot();
+    }
 
     if (intersections.length > 0) {
       const hit = intersections[0];
@@ -52,7 +59,44 @@ export class DamageSystem {
       const hitPoint = hit.point;
       const normal = hit.face ? hit.face.normal.clone().applyQuaternion(hitMesh.getWorldQuaternion(new THREE.Quaternion())) : new THREE.Vector3(0, 1, 0);
 
-      // 1. ¿Es una hitbox de un enemigo?
+      // 1. ¿Es una diana del campo de tiro?
+      if (hitMesh.userData && hitMesh.userData.isDiana) {
+        const diana = hitMesh.userData.diana as TargetDiana;
+        const zone = hitMesh.userData.zone as DianaZone;
+        const result = diana.registerHit(zone, hitPoint);
+
+        if (this.targetRange) {
+          this.targetRange.registerDianaHit(result);
+        }
+
+        if (result.isHeadshot) {
+          this.audioManager.playHit(true); // Headshot ding!
+          this.particleSystem.emitImpactSparks(hitPoint, normal, true, true);
+          this.particleSystem.createBulletTracer(muzzlePos, hitPoint, true);
+        } else {
+          this.audioManager.playHit(false);
+          this.particleSystem.emitImpactSparks(hitPoint, normal, true, false);
+          this.particleSystem.createBulletTracer(muzzlePos, hitPoint, false);
+        }
+
+        this.scoreManager.registerHit();
+        if (this.onHitRegistered) {
+          this.onHitRegistered(result.isHeadshot, false);
+        }
+        return;
+      }
+
+      // 2. ¿Es el botón 3D de volver a oleadas del campo de tiro?
+      if (hitMesh.userData && hitMesh.userData.isReturnToSurvivalButton) {
+        if (this.targetRange) {
+          this.targetRange.checkReturnButtonClick(hitMesh);
+        }
+        this.particleSystem.emitImpactSparks(hitPoint, normal, false, false);
+        this.particleSystem.createBulletTracer(muzzlePos, hitPoint, false);
+        return;
+      }
+
+      // 3. ¿Es una hitbox de un enemigo?
       if (hitMesh.userData && hitMesh.userData.isHitbox) {
         const isHeadshot = !!hitMesh.userData.isHeadshot;
         const isShield = !!hitMesh.userData.isShield;
@@ -81,7 +125,7 @@ export class DamageSystem {
           this.onHitRegistered(isHeadshot, isShield);
         }
       } else {
-        // 2. Impacto contra cobertura / pared
+        // 4. Impacto contra cobertura / pared
         this.particleSystem.emitImpactSparks(hitPoint, normal, false, false);
         this.particleSystem.createBulletTracer(muzzlePos, hitPoint, false);
       }

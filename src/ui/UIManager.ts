@@ -12,6 +12,7 @@ export class UIManager {
   private damageVignetteEl: HTMLElement | null;
   private overlayEl: HTMLElement | null;
   private startBtnEl: HTMLElement | null;
+  private rangeBtnEl: HTMLElement | null;
 
   // Boss HUD
   private bossHudEl: HTMLElement | null;
@@ -23,6 +24,7 @@ export class UIManager {
   private damageVignetteTimeout: number | null = null;
 
   public onStartClicked?: () => void;
+  public onRangeClicked?: () => void;
 
   constructor() {
     this.scoreEl = document.getElementById('score-display');
@@ -38,6 +40,7 @@ export class UIManager {
     this.damageVignetteEl = document.getElementById('damage-vignette');
     this.overlayEl = document.getElementById('overlay');
     this.startBtnEl = document.getElementById('start-btn');
+    this.rangeBtnEl = document.getElementById('range-btn');
 
     this.bossHudEl = document.getElementById('boss-hud');
     this.bossNameEl = document.getElementById('boss-name');
@@ -48,6 +51,14 @@ export class UIManager {
       this.startBtnEl.addEventListener('click', () => {
         if (this.onStartClicked) {
           this.onStartClicked();
+        }
+      });
+    }
+
+    if (this.rangeBtnEl) {
+      this.rangeBtnEl.addEventListener('click', () => {
+        if (this.onRangeClicked) {
+          this.onRangeClicked();
         }
       });
     }

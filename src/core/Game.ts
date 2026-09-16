@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
-import { GameState, GameStateEnum } from './GameState';
+import { GameState, GameStateEnum, GameMode } from './GameState';
 import { InputManager } from '../input/InputManager';
 import { DesktopInput } from '../input/DesktopInput';
 import { VRInput } from '../input/VRInput';
@@ -15,6 +15,8 @@ import { WaveManager } from '../systems/WaveManager';
 import { AudioManager } from '../audio/AudioManager';
 import { UIManager } from '../ui/UIManager';
 import { VRWristHUD } from '../ui/VRWristHUD';
+import { VRMenu } from '../ui/VRMenu';
+import { TargetRange } from '../world/TargetRange';
 
 export class Game {
   public renderer: THREE.WebGLRenderer;
@@ -38,6 +40,8 @@ export class Game {
   public player: Player;
   public uiManager: UIManager;
   public vrWristHUD: VRWristHUD;
+  public vrMenu: VRMenu;
+  public targetRange: TargetRange;
 
   public isVRActive: boolean = false;
 
@@ -93,10 +97,25 @@ export class Game {
     this.vrInput = new VRInput(this.renderer, this.player.playerGroup, this.camera);
     this.vrWristHUD = new VRWristHUD();
 
-    // 8. Sistema de Enemigos
+    // 8. Campo de Tiro (TargetRange) con Dianas Reactivas
+    this.targetRange = new TargetRange({
+      onReturnToSurvival: () => this.startSurvivalMode()
+    });
+    this.scene.add(this.targetRange.group);
+
+    // 9. Menú Holográfico 3D para VR (Game Over, Reaparecer y Selección)
+    this.vrMenu = new VRMenu({
+      onRespawn: () => this.restartGame(),
+      onTrainingRange: () => this.startTrainingRange(),
+      onStartSurvival: () => this.startSurvivalMode(),
+      onMainMenu: () => this.returnToMainMenu()
+    });
+    this.scene.add(this.vrMenu.group);
+
+    // 10. Sistema de Enemigos
     this.enemyManager = new EnemyManager(this.scene, this.particleSystem, this.audioManager);
 
-    // 9. Sistema de Daño
+    // 11. Sistema de Daño
     this.damageSystem = new DamageSystem(
       this.enemyManager,
       this.particleSystem,
@@ -104,6 +123,7 @@ export class Game {
       this.scoreManager,
       this.arena
     );
+    this.damageSystem.targetRange = this.targetRange;
 
     // 10. Sistema de Oleadas Arcade
     this.waveManager = new WaveManager(
@@ -182,10 +202,7 @@ export class Game {
         this.vrWristHUD.attachTo(grip);
       };
 
-      this.gameState.setState(GameStateEnum.PLAYING);
-      this.uiManager.showOverlay(false);
-
-      this.waveManager.start();
+      this.startSurvivalMode();
     });
 
     this.renderer.xr.addEventListener('sessionend', () => {
@@ -194,6 +211,7 @@ export class Game {
 
       this.inputManager.setSource(this.desktopInput);
       this.player.setVRMode(false);
+      this.vrMenu.hide();
 
       this.gameState.setState(GameStateEnum.MAIN_MENU);
       this.uiManager.showOverlay(true);
@@ -207,12 +225,13 @@ export class Game {
       if (this.gameState.getState() === GameStateEnum.GAME_OVER) {
         this.restartGame();
       } else {
-        this.audioManager.playAlarm();
-        this.desktopInput.requestLock();
-        this.gameState.setState(GameStateEnum.PLAYING);
-        this.uiManager.showOverlay(false);
-        this.waveManager.start();
+        this.startSurvivalMode();
       }
+    };
+
+    this.uiManager.onRangeClicked = () => {
+      this.audioManager.init();
+      this.startTrainingRange();
     };
 
     this.desktopInput.onLockChange = (locked) => {
@@ -279,23 +298,88 @@ export class Game {
 
     this.player.onDeath = () => {
       this.gameState.setState(GameStateEnum.GAME_OVER);
-      const stats = this.scoreManager.getStats();
       this.uiManager.showBossBar(false);
-      this.uiManager.showOverlay(
-        true,
-        'SISTEMA COMPROMETIDO',
-        `REINICIAR PROTOCOLO // SCORE: ${stats.score} (ACC: ${stats.accuracy}%)`
-      );
+      const stats = this.scoreManager.getStats();
+
+      if (this.isVRActive) {
+        // En VR: Mostrar el menú 3D flotante interactivo (evita que el juego quede congelado)
+        this.vrMenu.showGameOver(
+          {
+            score: stats.score,
+            accuracy: stats.accuracy,
+            wave: this.waveManager.getCurrentPhaseConfig().phaseNumber
+          },
+          this.camera
+        );
+      } else {
+        this.uiManager.showOverlay(
+          true,
+          'SISTEMA COMPROMETIDO',
+          `REAPARECER // SCORE: ${stats.score} (ACC: ${stats.accuracy}%)`
+        );
+      }
+
       if (document.pointerLockElement) {
         document.exitPointerLock();
       }
     };
   }
 
+  public startSurvivalMode(): void {
+    this.targetRange.disable();
+    this.vrMenu.hide();
+    this.gameState.setMode(GameMode.SURVIVAL);
+
+    this.audioManager.playAlarm();
+    if (!this.isVRActive) {
+      this.desktopInput.requestLock();
+    }
+    this.restartGame();
+  }
+
+  public startTrainingRange(): void {
+    this.enemyManager.clearAll();
+    this.waveManager.stop();
+    this.vrMenu.hide();
+    this.targetRange.enable();
+    this.player.respawn();
+    this.scoreManager.reset();
+
+    const weapon = this.weaponManager.getActiveWeapon();
+    weapon.currentAmmo = weapon.config.magSize;
+    weapon.isReloading = false;
+    this.uiManager.updateAmmo(weapon.currentAmmo, weapon.config.magSize);
+    this.uiManager.updateHealth(this.player.health, this.player.maxHealth);
+    this.uiManager.resetVignette();
+    this.uiManager.showBossBar(false);
+    this.uiManager.showOverlay(false);
+    this.uiManager.updateStatus('🎯 CAMPO DE TIRO // CALIBRACIÓN');
+
+    if (!this.isVRActive) {
+      this.desktopInput.requestLock();
+    }
+    this.gameState.setMode(GameMode.TRAINING);
+    this.gameState.setState(GameStateEnum.PLAYING);
+  }
+
+  public returnToMainMenu(): void {
+    this.enemyManager.clearAll();
+    this.waveManager.stop();
+    this.targetRange.disable();
+    this.gameState.setState(GameStateEnum.MAIN_MENU);
+
+    if (this.isVRActive) {
+      this.vrMenu.showMainMenu(this.camera);
+    } else {
+      this.uiManager.showOverlay(true);
+    }
+  }
+
   private restartGame(): void {
     this.enemyManager.clearAll();
     this.player.respawn();
     this.scoreManager.reset();
+    this.vrMenu.hide();
 
     const weapon = this.weaponManager.getActiveWeapon();
     weapon.currentAmmo = weapon.config.magSize;
@@ -311,6 +395,7 @@ export class Game {
     this.gameState.setState(GameStateEnum.PLAYING);
     this.uiManager.showOverlay(false);
     this.waveManager.reset();
+    this.waveManager.start();
   }
 
   private handlePlayerInput(): void {
@@ -336,18 +421,30 @@ export class Game {
   private animate(): void {
     // Limitar delta a 0.05s para evitar picos de simulación física en VR
     const delta = Math.min(this.clock.getDelta(), 0.05);
+    const state = this.gameState.getState();
 
-    if (this.gameState.getState() === GameStateEnum.PLAYING) {
+    // 1. Estado PLAYING (Combate u Entrenamiento)
+    if (state === GameStateEnum.PLAYING) {
       this.inputManager.update(delta);
       this.handlePlayerInput();
       this.player.update(delta);
       this.weaponManager.update(delta);
-      this.enemyManager.update(delta, this.player.position);
-      this.waveManager.update(delta);
+
+      if (this.gameState.getMode() === GameMode.SURVIVAL) {
+        this.enemyManager.update(delta, this.player.position);
+        this.waveManager.update(delta);
+      } else if (this.gameState.getMode() === GameMode.TRAINING) {
+        const shootRay = this.player.getShootRay();
+        this.targetRange.update(delta, shootRay.origin, shootRay.direction);
+      }
 
       if (this.isVRActive) {
         const weapon = this.weaponManager.getActiveWeapon();
-        const targets = [...this.enemyManager.getAllHitboxes(), ...this.arena.targetMeshes];
+        const targets = [
+          ...this.enemyManager.getAllHitboxes(),
+          ...this.targetRange.getAllHitboxes(),
+          ...this.arena.targetMeshes
+        ];
         weapon.updateLaserAim(targets);
       }
 
@@ -355,7 +452,19 @@ export class Game {
       this.scoreManager.update(delta);
       this.gameState.update(delta);
     } else {
+      // 2. Estado GAME_OVER, MAIN_MENU o PAUSED
       this.particleSystem.update(delta);
+
+      // En VR, actualizar el raycast y gatillo contra el menú 3D para que nunca se trabe
+      if (this.isVRActive && this.vrMenu.isVisible()) {
+        this.inputManager.update(delta);
+        const shootTriggered = this.inputManager.consumeShootTriggered();
+        const shootRay = this.player.getShootRay();
+        this.vrMenu.update(shootRay.origin, shootRay.direction, shootTriggered);
+
+        const weapon = this.weaponManager.getActiveWeapon();
+        weapon.updateLaserAim(this.vrMenu.group.children);
+      }
     }
 
     this.renderer.render(this.scene, this.camera);
