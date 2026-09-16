@@ -6,10 +6,10 @@ export class VRInput implements IInputSource {
   private playerGroup: THREE.Group;
   private camera: THREE.Camera;
 
-  public rightController: THREE.XRTargetRaySpace;
-  public leftController: THREE.XRTargetRaySpace;
-  public rightGrip: THREE.XRGripSpace;
-  public leftGrip: THREE.XRGripSpace;
+  public rightController: THREE.XRTargetRaySpace | null = null;
+  public leftController: THREE.XRTargetRaySpace | null = null;
+  public rightGrip: THREE.XRGripSpace | null = null;
+  public leftGrip: THREE.XRGripSpace | null = null;
 
   private shootTriggered: boolean = false;
   private isShooting: boolean = false;
@@ -17,130 +17,176 @@ export class VRInput implements IInputSource {
   private pauseTriggered: boolean = false;
 
   private moveVector: Vector2D = { x: 0, z: 0 };
-  private snapTurnCooldown: number = 0;
-  private snapTurnAngle: number = Math.PI / 4; // 45 grados por snap turn
+
+  // Snap Turn con cerrojo de seguridad (Single-Flick Latch)
+  // Evita giros continuos e interminables que provocan mareo
+  private canSnapTurn: boolean = true;
+  private snapTurnAngle: number = Math.PI / 6; // 30 grados por snap (mucho más cómodo que 45)
+
+  public onRightControllerReady?: (controller: THREE.XRTargetRaySpace, grip: THREE.XRGripSpace) => void;
+  public onLeftControllerReady?: (controller: THREE.XRTargetRaySpace, grip: THREE.XRGripSpace) => void;
 
   constructor(renderer: THREE.WebGLRenderer, playerGroup: THREE.Group, camera: THREE.Camera) {
     this.renderer = renderer;
     this.playerGroup = playerGroup;
     this.camera = camera;
 
-    // Controladores WebXR (Target Ray y Grip)
-    this.rightController = this.renderer.xr.getController(0);
-    this.leftController = this.renderer.xr.getController(1);
-    this.rightGrip = this.renderer.xr.getControllerGrip(0);
-    this.leftGrip = this.renderer.xr.getControllerGrip(1);
+    this.setupControllers();
+  }
 
-    this.playerGroup.add(this.rightController);
-    this.playerGroup.add(this.leftController);
-    this.playerGroup.add(this.rightGrip);
-    this.playerGroup.add(this.leftGrip);
+  private setupControllers(): void {
+    // Configurar controladores dinámicamente según 'handedness' real (evita invertir manos)
+    for (let i = 0; i < 2; i++) {
+      const controller = this.renderer.xr.getController(i);
+      const grip = this.renderer.xr.getControllerGrip(i);
+
+      this.playerGroup.add(controller);
+      this.playerGroup.add(grip);
+
+      controller.addEventListener('connected', (event) => {
+        const data = (event as unknown as { data: XRInputSource }).data;
+        if (!data) return;
+
+        if (data.handedness === 'right') {
+          this.rightController = controller;
+          this.rightGrip = grip;
+          this.setupRightControllerEvents(controller);
+          if (this.onRightControllerReady) {
+            this.onRightControllerReady(controller, grip);
+          }
+        } else if (data.handedness === 'left') {
+          this.leftController = controller;
+          this.leftGrip = grip;
+          this.setupLeftControllerEvents(controller);
+          if (this.onLeftControllerReady) {
+            this.onLeftControllerReady(controller, grip);
+          }
+        }
+      });
+    }
+  }
+
+  private setupRightControllerEvents(controller: THREE.XRTargetRaySpace): void {
+    controller.addEventListener('selectstart', () => {
+      this.isShooting = true;
+      this.shootTriggered = true;
+      this.triggerHaptic(0.7, 40, 'right');
+    });
+
+    controller.addEventListener('selectend', () => {
+      this.isShooting = false;
+    });
+  }
+
+  private setupLeftControllerEvents(controller: THREE.XRTargetRaySpace): void {
+    controller.addEventListener('selectstart', () => {
+      this.reloadTriggered = true;
+      this.triggerHaptic(0.35, 30, 'left');
+    });
   }
 
   public init(): void {
-    // Escuchar eventos estándar de gatillo en WebXR
-    this.rightController.addEventListener('selectstart', () => {
-      this.isShooting = true;
-      this.shootTriggered = true;
-      this.triggerHaptic(0.75, 45); // Vibración háptica en el mando derecho
-    });
-
-    this.rightController.addEventListener('selectend', () => {
-      this.isShooting = false;
-    });
-
-    this.leftController.addEventListener('selectstart', () => {
-      // Gatillo izquierdo también puede recargar
-      this.reloadTriggered = true;
-      this.triggerHaptic(0.4, 30, 'left');
-    });
   }
 
   public dispose(): void {
-    // Limpieza de controladores
   }
 
-  public update(delta: number): void {
-    if (this.snapTurnCooldown > 0) {
-      this.snapTurnCooldown -= delta;
-    }
-
+  public update(_delta: number): void {
     const session = this.renderer.xr.getSession();
     if (!session) return;
 
-    let leftStickX = 0;
-    let leftStickY = 0;
-    let rightStickX = 0;
+    let leftStick = { x: 0, y: 0 };
+    let rightStick = { x: 0, y: 0 };
 
     for (const source of session.inputSources) {
       if (!source.gamepad) continue;
       const gp = source.gamepad;
+      const stick = this.getSafeThumbstick(gp);
 
-      // 1. Mando Izquierdo (Locomoción y Recarga)
       if (source.handedness === 'left') {
-        // En Meta Quest / WebXR: axes[2] es eje X, axes[3] es eje Y
-        const ax = gp.axes[2] ?? gp.axes[0] ?? 0;
-        const ay = gp.axes[3] ?? gp.axes[1] ?? 0;
-
-        // Zona muerta (Deadzone) para evitar deriva
-        if (Math.abs(ax) > 0.15) leftStickX = ax;
-        if (Math.abs(ay) > 0.15) leftStickY = ay;
-
+        leftStick = stick;
         // Botón Grip o botón X/Y para recargar
         if (gp.buttons[1]?.pressed || gp.buttons[4]?.pressed || gp.buttons[5]?.pressed) {
           this.reloadTriggered = true;
         }
-      }
-
-      // 2. Mando Derecho (Gatillo, Giro y Recarga)
-      if (source.handedness === 'right') {
-        const ax = gp.axes[2] ?? gp.axes[0] ?? 0;
-        if (Math.abs(ax) > 0.15) rightStickX = ax;
-
-        // Botón A/B o Grip derecho para recargar
+      } else if (source.handedness === 'right') {
+        rightStick = stick;
+        // Botón Grip o botón A/B para recargar
         if (gp.buttons[1]?.pressed || gp.buttons[4]?.pressed || gp.buttons[5]?.pressed) {
           this.reloadTriggered = true;
         }
       }
     }
 
-    // 3. Procesar Giro Rápido (Snap Turn) con el joystick derecho
-    if (this.snapTurnCooldown <= 0) {
-      if (rightStickX > 0.65) {
+    // 1. SISTEMA DE SNAP TURN ANTI-MAREO (Single-Flick Latch)
+    // El giro solo se ejecuta 1 SOLA VEZ por inclinación.
+    // Para volver a girar, el jugador DEBE soltar la palanca al centro (< 0.28).
+    if (Math.abs(rightStick.x) < 0.28) {
+      this.canSnapTurn = true; // La palanca regresó al centro
+    }
+
+    if (this.canSnapTurn) {
+      if (rightStick.x > 0.65) {
         this.playerGroup.rotation.y -= this.snapTurnAngle;
-        this.snapTurnCooldown = 0.28;
-        this.triggerHaptic(0.2, 20, 'right');
-      } else if (rightStickX < -0.65) {
+        this.canSnapTurn = false; // ¡BLOQUEADO hasta que se suelte!
+        this.triggerHaptic(0.25, 25, 'right');
+      } else if (rightStick.x < -0.65) {
         this.playerGroup.rotation.y += this.snapTurnAngle;
-        this.snapTurnCooldown = 0.28;
-        this.triggerHaptic(0.2, 20, 'right');
+        this.canSnapTurn = false; // ¡BLOQUEADO hasta que se suelte!
+        this.triggerHaptic(0.25, 25, 'right');
       }
     }
 
-    // 4. Locomoción orientada hacia la dirección de la Cabeza (HMD)
-    // Extraer el ángulo Yaw de la cámara
-    const cameraWorldDir = new THREE.Vector3();
-    this.camera.getWorldDirection(cameraWorldDir);
-    const headYaw = Math.atan2(cameraWorldDir.x, cameraWorldDir.z);
+    // 2. LOCOMOCIÓN ORIENTADA A LA CABEZA (Head-Gaze Movement)
+    // Si la palanca izquierda está dentro de la zona muerta, no se mueve
+    if (Math.hypot(leftStick.x, leftStick.y) > 0.18) {
+      const forwardInput = -leftStick.y;
+      const strafeInput = leftStick.x;
 
-    // Convertir el joystick izquierdo en vector relativo al HMD
-    if (Math.hypot(leftStickX, leftStickY) > 0.15) {
-      const forward = -leftStickY;
-      const strafe = leftStickX;
+      // Dirección de mirada de la cabeza en el mundo
+      const headDir = new THREE.Vector3();
+      this.camera.getWorldDirection(headDir);
+      headDir.y = 0;
+      headDir.normalize();
 
-      const cos = Math.cos(headYaw);
-      const sin = Math.sin(headYaw);
+      const headRight = new THREE.Vector3(-headDir.z, 0, headDir.x);
 
-      // Rotación en el plano XZ según hacia dónde mira la cabeza
-      const worldX = strafe * cos + forward * sin;
-      const worldZ = -strafe * sin + forward * cos;
+      const move = new THREE.Vector3();
+      move.addScaledVector(headDir, forwardInput);
+      move.addScaledVector(headRight, strafeInput);
 
-      this.moveVector.x = worldX;
-      this.moveVector.z = worldZ;
+      this.moveVector.x = move.x;
+      this.moveVector.z = move.z;
     } else {
       this.moveVector.x = 0;
       this.moveVector.z = 0;
     }
+  }
+
+  /**
+   * Extrae los ejes del joystick de manera segura evitando que gatillos o agarres
+   * sean leídos accidentalmente como rotación continua.
+   */
+  private getSafeThumbstick(gp: Gamepad): { x: number; y: number } {
+    if (!gp.axes) return { x: 0, y: 0 };
+
+    // Estándar oficial WebXR para Oculus Touch / Meta Quest
+    if (gp.mapping === 'xr-standard' && gp.axes.length >= 4) {
+      return {
+        x: gp.axes[2] ?? 0,
+        y: gp.axes[3] ?? 0
+      };
+    }
+
+    // Fallback para controladores de 2 ejes
+    if (gp.axes.length >= 2) {
+      return {
+        x: gp.axes[0] ?? 0,
+        y: gp.axes[1] ?? 0
+      };
+    }
+
+    return { x: 0, y: 0 };
   }
 
   public triggerHaptic(intensity: number = 0.7, durationMs: number = 40, hand: 'right' | 'left' = 'right'): void {
@@ -162,7 +208,6 @@ export class VRInput implements IInputSource {
   }
 
   public getLookDelta(): LookDelta {
-    // En VR la rotación de la cabeza es 6DOF física directa
     return { x: 0, y: 0 };
   }
 
@@ -195,10 +240,15 @@ export class VRInput implements IInputSource {
     const origin = new THREE.Vector3();
     const direction = new THREE.Vector3(0, 0, -1);
 
-    this.rightController.getWorldPosition(origin);
-    const quat = new THREE.Quaternion();
-    this.rightController.getWorldQuaternion(quat);
-    direction.applyQuaternion(quat).normalize();
+    if (this.rightController) {
+      this.rightController.getWorldPosition(origin);
+      const quat = new THREE.Quaternion();
+      this.rightController.getWorldQuaternion(quat);
+      direction.applyQuaternion(quat).normalize();
+    } else {
+      this.camera.getWorldPosition(origin);
+      this.camera.getWorldDirection(direction);
+    }
 
     return { origin, direction };
   }

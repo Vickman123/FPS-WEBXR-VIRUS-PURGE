@@ -71,7 +71,12 @@ export class Player {
 
     if (inVR && vrInput) {
       // En VR, acoplar el arma a la mano derecha física
-      this.weaponManager.attachTo(vrInput.rightGrip);
+      if (vrInput.rightGrip) {
+        this.weaponManager.attachTo(vrInput.rightGrip);
+      }
+      vrInput.onRightControllerReady = (_controller, grip) => {
+        this.weaponManager.attachTo(grip);
+      };
       this.camera.position.set(0, 0, 0); // El tracking de Meta Quest gestiona la altura real de pie
     } else {
       // En PC, acoplar el arma a la cámara

@@ -175,7 +175,12 @@ export class Game {
 
       this.inputManager.setSource(this.vrInput);
       this.player.setVRMode(true, this.vrInput);
-      this.vrWristHUD.attachTo(this.vrInput.leftGrip);
+      if (this.vrInput.leftGrip) {
+        this.vrWristHUD.attachTo(this.vrInput.leftGrip);
+      }
+      this.vrInput.onLeftControllerReady = (_controller, grip) => {
+        this.vrWristHUD.attachTo(grip);
+      };
 
       this.gameState.setState(GameStateEnum.PLAYING);
       this.uiManager.showOverlay(false);
