@@ -22,6 +22,7 @@ export class RansomwareBoss extends Enemy {
 
     this.model.position.copy(spawnPos);
     this.model.position.y = this.baseHeight;
+    this.enemyType = 'ransomware';
 
     // Materiales
     const darkObsidian = new THREE.MeshStandardMaterial({

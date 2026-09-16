@@ -7,12 +7,17 @@ export interface WeaponConfig {
   fireRate: number; // Intervalo en segundos entre disparos
   magSize: number;
   reloadTime: number;
+  isAutomatic?: boolean;
+  pelletCount?: number;
+  spreadAngle?: number;
 }
 
 export abstract class Weapon {
+  public baseConfig: WeaponConfig;
   public config: WeaponConfig;
   public currentAmmo: number;
   public isReloading: boolean = false;
+  public isAutomatic: boolean = false;
   protected reloadTimer: number = 0;
   protected fireCooldown: number = 0;
 
@@ -24,11 +29,24 @@ export abstract class Weapon {
   public onReloadEnd?: () => void;
 
   constructor(config: WeaponConfig) {
-    this.config = config;
+    this.baseConfig = { ...config };
+    this.config = { ...config };
+    this.isAutomatic = !!config.isAutomatic;
     this.currentAmmo = config.magSize;
     this.model = new THREE.Group();
     this.muzzleObject = new THREE.Object3D();
     this.model.add(this.muzzleObject);
+  }
+
+  public applyUpgrades(damageMult: number, fireRateMult: number, magBonus: number, reloadMult: number): void {
+    this.config.damage = Math.round(this.baseConfig.damage * damageMult);
+    this.config.fireRate = Math.max(0.04, Number((this.baseConfig.fireRate * fireRateMult).toFixed(3)));
+    this.config.magSize = this.baseConfig.magSize + magBonus;
+    this.config.reloadTime = Math.max(0.3, Number((this.baseConfig.reloadTime * reloadMult).toFixed(2)));
+    this.currentAmmo = Math.min(this.currentAmmo, this.config.magSize);
+    if (this.onAmmoChange) {
+      this.onAmmoChange(this.currentAmmo, this.config.magSize);
+    }
   }
 
   public canFire(): boolean {
@@ -103,4 +121,5 @@ export abstract class Weapon {
   public updateLaserAim?(_targets: THREE.Object3D[]): void;
 
   public abstract playRecoil(): void;
+  public abstract setVRMode(inVR: boolean): void;
 }

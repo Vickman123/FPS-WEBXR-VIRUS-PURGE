@@ -1,3 +1,6 @@
+import { UpgradeManager } from '../systems/UpgradeManager';
+import { CurrencyManager } from '../systems/CurrencyManager';
+
 export class UIManager {
   private scoreEl: HTMLElement | null;
   private comboEl: HTMLElement | null;
@@ -14,6 +17,13 @@ export class UIManager {
   private startBtnEl: HTMLElement | null;
   private rangeBtnEl: HTMLElement | null;
 
+  // Bits y Cyber Store
+  private bitsEl: HTMLElement | null;
+  private storeOverlayEl: HTMLElement | null;
+  private storeBitsEl: HTMLElement | null;
+  private storeItemsEl: HTMLElement | null;
+  private storeContinueBtnEl: HTMLElement | null;
+
   // Boss HUD
   private bossHudEl: HTMLElement | null;
   private bossNameEl: HTMLElement | null;
@@ -25,11 +35,13 @@ export class UIManager {
 
   public onStartClicked?: () => void;
   public onRangeClicked?: () => void;
+  public onStoreContinue?: () => void;
 
   constructor() {
     this.scoreEl = document.getElementById('score-display');
     this.comboEl = document.getElementById('combo-display');
     this.waveEl = document.getElementById('wave-display');
+    this.bitsEl = document.getElementById('bits-display');
     this.healthBarEl = document.getElementById('health-bar');
     this.healthTextEl = document.getElementById('health-text');
     this.ammoCurrentEl = document.getElementById('ammo-current');
@@ -41,6 +53,11 @@ export class UIManager {
     this.overlayEl = document.getElementById('overlay');
     this.startBtnEl = document.getElementById('start-btn');
     this.rangeBtnEl = document.getElementById('range-btn');
+
+    this.storeOverlayEl = document.getElementById('store-overlay');
+    this.storeBitsEl = document.getElementById('store-bits-display');
+    this.storeItemsEl = document.getElementById('store-items-container');
+    this.storeContinueBtnEl = document.getElementById('store-continue-btn');
 
     this.bossHudEl = document.getElementById('boss-hud');
     this.bossNameEl = document.getElementById('boss-name');
@@ -59,6 +76,14 @@ export class UIManager {
       this.rangeBtnEl.addEventListener('click', () => {
         if (this.onRangeClicked) {
           this.onRangeClicked();
+        }
+      });
+    }
+
+    if (this.storeContinueBtnEl) {
+      this.storeContinueBtnEl.addEventListener('click', () => {
+        if (this.onStoreContinue) {
+          this.onStoreContinue();
         }
       });
     }
@@ -219,5 +244,112 @@ export class UIManager {
     } else {
       this.overlayEl.classList.add('hidden');
     }
+  }
+
+  public updateBits(bits: number): void {
+    if (this.bitsEl) {
+      this.bitsEl.textContent = `${bits.toString().padStart(4, '0')} 💾`;
+    }
+  }
+
+  public showStoreOverlay(
+    show: boolean,
+    upgradeManager?: UpgradeManager,
+    currencyManager?: CurrencyManager
+  ): void {
+    if (!this.storeOverlayEl) return;
+
+    if (show && upgradeManager && currencyManager) {
+      this.storeOverlayEl.classList.remove('hidden');
+      if (this.storeBitsEl) {
+        this.storeBitsEl.textContent = `${currencyManager.getBits()} 💾 BITS`;
+      }
+      this.renderStoreItems(upgradeManager, currencyManager);
+    } else {
+      this.storeOverlayEl.classList.add('hidden');
+    }
+  }
+
+  public renderStoreItems(upgradeManager: UpgradeManager, currencyManager: CurrencyManager): void {
+    if (!this.storeItemsEl) return;
+    this.storeItemsEl.innerHTML = '';
+
+    if (this.storeBitsEl) {
+      this.storeBitsEl.textContent = `${currencyManager.getBits()} 💾 BITS`;
+    }
+
+    // 1. Mejoras de arma
+    const upgrades = upgradeManager.getAllUpgradesInfo();
+    upgrades.forEach((u) => {
+      const card = document.createElement('div');
+      card.className = 'store-item';
+
+      const canAfford = currencyManager.canAfford(u.cost);
+      let btnLabel = u.isMax ? 'NIVEL MÁXIMO' : `MEJORAR // ${u.cost} BITS`;
+
+      card.innerHTML = `
+        <div>
+          <div class="store-item-title">${u.name} (Nv. ${u.currentLevel}/${u.maxLevel})</div>
+          <div class="store-item-desc">${u.description}</div>
+        </div>
+        <button class="store-buy-btn" ${u.isMax || !canAfford ? 'disabled' : ''}>
+          ${btnLabel}
+        </button>
+      `;
+
+      const btn = card.querySelector('button');
+      if (btn && !u.isMax && canAfford) {
+        btn.addEventListener('click', () => {
+          if (upgradeManager.buyUpgrade(u.type)) {
+            this.renderStoreItems(upgradeManager, currencyManager);
+          }
+        });
+      }
+
+      this.storeItemsEl!.appendChild(card);
+    });
+
+    // 2. Armas desbloqueables
+    const weapons = upgradeManager.getWeaponsShopInfo().filter((w) => w.type !== 'pistol');
+    weapons.forEach((w) => {
+      const card = document.createElement('div');
+      card.className = 'store-item';
+
+      const canAfford = currencyManager.canAfford(w.cost);
+      let btnClass = 'store-buy-btn';
+      let btnLabel = `${w.cost} BITS // ADQUIRIR`;
+      let disabled = false;
+
+      if (w.isEquipped) {
+        btnLabel = 'EQUIPADA';
+        btnClass += ' equipped';
+        disabled = true;
+      } else if (w.isUnlocked) {
+        btnLabel = 'EQUIPAR';
+      } else if (!canAfford) {
+        disabled = true;
+      }
+
+      card.innerHTML = `
+        <div>
+          <div class="store-item-title">${w.name}</div>
+          <div class="store-item-desc">${w.description}</div>
+        </div>
+        <button class="${btnClass}" ${disabled ? 'disabled' : ''}>
+          ${btnLabel}
+        </button>
+      `;
+
+      const btn = card.querySelector('button');
+      if (btn && !disabled) {
+        btn.addEventListener('click', () => {
+          if (upgradeManager.buyOrEquipWeapon(w.type)) {
+            this.renderStoreItems(upgradeManager, currencyManager);
+          }
+        });
+      }
+
+      this.storeItemsEl!.appendChild(card);
+    });
   }
 }

@@ -20,6 +20,7 @@ export class WormSpreader extends Enemy {
 
     this.model.position.copy(spawnPos);
     this.baseHeight = 0.85;
+    this.enemyType = 'worm';
 
     // Materiales: fucsia / violeta neón para el gusano de datos
     const nodeMat = new THREE.MeshStandardMaterial({

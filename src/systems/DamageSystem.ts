@@ -41,6 +41,31 @@ export class DamageSystem {
     const muzzlePos = new THREE.Vector3();
     weapon.getMuzzleWorldPosition(muzzlePos);
 
+    if (this.targetRange && this.targetRange.isEnabled) {
+      this.targetRange.registerShot();
+    }
+
+    const pellets = weapon.config.pelletCount ?? 1;
+    const spreadAngle = weapon.config.spreadAngle ?? 0.055;
+
+    for (let i = 0; i < pellets; i++) {
+      const pelletDir = direction.clone();
+      if (pellets > 1) {
+        pelletDir.x += (Math.random() - 0.5) * spreadAngle * 2;
+        pelletDir.y += (Math.random() - 0.5) * spreadAngle * 2;
+        pelletDir.z += (Math.random() - 0.5) * spreadAngle * 2;
+        pelletDir.normalize();
+      }
+      this.processSingleRay(origin, pelletDir, weapon, muzzlePos);
+    }
+  }
+
+  private processSingleRay(
+    origin: THREE.Vector3,
+    direction: THREE.Vector3,
+    weapon: Weapon,
+    muzzlePos: THREE.Vector3
+  ): void {
     this.raycaster.set(origin, direction);
     this.raycaster.far = 100;
 
@@ -48,10 +73,6 @@ export class DamageSystem {
     const rangeHitboxes = this.targetRange ? this.targetRange.getAllHitboxes() : [];
     const potentialTargets = [...enemyHitboxes, ...rangeHitboxes, ...this.arena.targetMeshes];
     const intersections = this.raycaster.intersectObjects(potentialTargets, false);
-
-    if (this.targetRange && this.targetRange.isEnabled) {
-      this.targetRange.registerShot();
-    }
 
     if (intersections.length > 0) {
       const hit = intersections[0];

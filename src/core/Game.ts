@@ -16,7 +16,11 @@ import { AudioManager } from '../audio/AudioManager';
 import { UIManager } from '../ui/UIManager';
 import { VRWristHUD } from '../ui/VRWristHUD';
 import { VRMenu } from '../ui/VRMenu';
+import { VRStore } from '../ui/VRStore';
 import { TargetRange } from '../world/TargetRange';
+import { CurrencyManager } from '../systems/CurrencyManager';
+import { UpgradeManager } from '../systems/UpgradeManager';
+import { BitDropManager } from '../systems/BitDropManager';
 
 export class Game {
   public renderer: THREE.WebGLRenderer;
@@ -33,7 +37,10 @@ export class Game {
   public particleSystem: ParticleSystem;
   public audioManager: AudioManager;
   public scoreManager: ScoreManager;
+  public currencyManager: CurrencyManager;
   public weaponManager: WeaponManager;
+  public upgradeManager: UpgradeManager;
+  public bitDropManager: BitDropManager;
   public enemyManager: EnemyManager;
   public damageSystem: DamageSystem;
   public waveManager: WaveManager;
@@ -41,6 +48,7 @@ export class Game {
   public uiManager: UIManager;
   public vrWristHUD: VRWristHUD;
   public vrMenu: VRMenu;
+  public vrStore: VRStore;
   public targetRange: TargetRange;
 
   public isVRActive: boolean = false;
@@ -117,7 +125,27 @@ export class Game {
     // 10. Sistema de Enemigos
     this.enemyManager = new EnemyManager(this.scene, this.particleSystem, this.audioManager);
 
-    // 11. Sistema de Daño
+    // 11. Economía y Mejoras (Cyber Store & Data Bits)
+    this.currencyManager = new CurrencyManager();
+    this.upgradeManager = new UpgradeManager(
+      this.currencyManager,
+      this.weaponManager,
+      this.audioManager
+    );
+    this.bitDropManager = new BitDropManager(
+      this.scene,
+      this.currencyManager,
+      this.audioManager,
+      this.particleSystem
+    );
+    this.vrStore = new VRStore(
+      this.currencyManager,
+      this.upgradeManager,
+      () => this.continueAfterStore()
+    );
+    this.scene.add(this.vrStore.group);
+
+    // 12. Sistema de Daño
     this.damageSystem = new DamageSystem(
       this.enemyManager,
       this.particleSystem,
@@ -127,7 +155,7 @@ export class Game {
     );
     this.damageSystem.targetRange = this.targetRange;
 
-    // 10. Sistema de Oleadas Arcade
+    // 13. Sistema de Oleadas Arcade
     this.waveManager = new WaveManager(
       this.enemyManager,
       this.arena,
@@ -250,17 +278,39 @@ export class Game {
       }
     };
 
-    const weapon = this.weaponManager.getActiveWeapon();
-    weapon.onAmmoChange = (curr, max) => {
+    this.currencyManager.onBitsChange = (bits) => {
+      this.uiManager.updateBits(bits);
+      this.vrWristHUD.updateBits(bits);
+    };
+
+    this.weaponManager.onAmmoChange = (curr, max) => {
       this.uiManager.updateAmmo(curr, max);
       this.vrWristHUD.updateAmmo(curr, max);
     };
-    weapon.onReloadStart = () => {
+    this.weaponManager.onReloadStart = () => {
       this.audioManager.playReload();
       this.uiManager.showReloadIndicator(true);
     };
-    weapon.onReloadEnd = () => {
+    this.weaponManager.onReloadEnd = () => {
       this.uiManager.showReloadIndicator(false);
+    };
+    this.weaponManager.onWeaponChanged = (w) => {
+      const weaponNameEl = document.querySelector('.weapon-name');
+      if (weaponNameEl) weaponNameEl.textContent = w.config.name;
+      this.uiManager.updateAmmo(w.currentAmmo, w.config.magSize);
+      this.vrWristHUD.updateAmmo(w.currentAmmo, w.config.magSize);
+    };
+
+    this.waveManager.onEnemyKilledCallback = (enemy) => {
+      this.bitDropManager.spawnDrops(enemy.getPosition(), enemy.enemyType);
+    };
+
+    this.waveManager.onOpenStore = () => {
+      this.openStore();
+    };
+
+    this.uiManager.onStoreContinue = () => {
+      this.continueAfterStore();
     };
 
     this.damageSystem.onHitRegistered = (isHeadshot) => {
@@ -332,6 +382,8 @@ export class Game {
   public startSurvivalMode(): void {
     this.targetRange.disable();
     this.vrMenu.hide();
+    this.vrStore.hide();
+    this.uiManager.showStoreOverlay(false);
     this.gameState.setMode(GameMode.SURVIVAL);
 
     this.audioManager.playAlarm();
@@ -343,8 +395,11 @@ export class Game {
 
   public startTrainingRange(): void {
     this.enemyManager.clearAll();
+    this.bitDropManager.clearAll();
     this.waveManager.stop();
     this.vrMenu.hide();
+    this.vrStore.hide();
+    this.uiManager.showStoreOverlay(false);
     this.targetRange.enable();
     this.player.respawn();
     this.scoreManager.reset();
@@ -368,8 +423,11 @@ export class Game {
 
   public returnToMainMenu(): void {
     this.enemyManager.clearAll();
+    this.bitDropManager.clearAll();
     this.waveManager.stop();
     this.targetRange.disable();
+    this.vrStore.hide();
+    this.uiManager.showStoreOverlay(false);
     this.gameState.setState(GameStateEnum.MAIN_MENU);
 
     if (this.isVRActive) {
@@ -377,6 +435,28 @@ export class Game {
     } else {
       this.uiManager.showOverlay(true);
     }
+  }
+
+  public openStore(): void {
+    if (this.isVRActive) {
+      this.vrStore.show(this.camera);
+      this.audioManager.playStoreOpen();
+    } else {
+      this.uiManager.showStoreOverlay(true, this.upgradeManager, this.currencyManager);
+      this.audioManager.playStoreOpen();
+      if (document.pointerLockElement) {
+        document.exitPointerLock();
+      }
+    }
+  }
+
+  public continueAfterStore(): void {
+    this.vrStore.hide();
+    this.uiManager.showStoreOverlay(false);
+    if (!this.isVRActive) {
+      this.desktopInput.requestLock();
+    }
+    this.waveManager.continueAfterStore();
   }
 
   public togglePause(): void {
@@ -402,8 +482,10 @@ export class Game {
 
   public resumeGame(): void {
     this.vrMenu.hide();
+    this.vrStore.hide();
     this.gameState.setState(GameStateEnum.PLAYING);
     this.uiManager.showOverlay(false);
+    this.uiManager.showStoreOverlay(false);
     if (!this.isVRActive) {
       this.desktopInput.requestLock();
     }
@@ -411,7 +493,10 @@ export class Game {
 
   public restartSector(): void {
     this.enemyManager.clearAll();
+    this.bitDropManager.clearAll();
     this.vrMenu.hide();
+    this.vrStore.hide();
+    this.uiManager.showStoreOverlay(false);
     this.player.respawn();
 
     const weapon = this.weaponManager.getActiveWeapon();
@@ -432,9 +517,14 @@ export class Game {
 
   private restartGame(): void {
     this.enemyManager.clearAll();
+    this.bitDropManager.clearAll();
     this.player.respawn();
     this.scoreManager.reset();
+    this.upgradeManager.reset();
+    this.currencyManager.reset();
     this.vrMenu.hide();
+    this.vrStore.hide();
+    this.uiManager.showStoreOverlay(false);
 
     const weapon = this.weaponManager.getActiveWeapon();
     weapon.currentAmmo = weapon.config.magSize;
@@ -460,11 +550,20 @@ export class Game {
     }
 
     const weapon = this.weaponManager.getActiveWeapon();
+    const shootTriggered = weapon.isAutomatic
+      ? this.inputManager.isShootHeld()
+      : this.inputManager.consumeShootTriggered();
 
-    if (this.inputManager.consumeShootTriggered()) {
+    if (shootTriggered) {
       if (weapon.canFire()) {
         weapon.fire();
-        this.audioManager.playShot();
+        if (weapon.config.name.includes('SHOTGUN')) {
+          this.audioManager.playShotgunShot();
+        } else if (weapon.config.name.includes('SMG')) {
+          this.audioManager.playSMGShot();
+        } else {
+          this.audioManager.playShot();
+        }
 
         const shootRay = this.player.getShootRay();
         this.damageSystem.processShot(shootRay.origin, shootRay.direction, weapon);
@@ -489,6 +588,7 @@ export class Game {
       this.handlePlayerInput();
       this.player.update(delta);
       this.weaponManager.update(delta);
+      this.bitDropManager.update(delta, this.player.position);
 
       if (this.gameState.getMode() === GameMode.SURVIVAL) {
         this.enemyManager.update(delta, this.player.position);
@@ -505,18 +605,28 @@ export class Game {
           ...this.targetRange.getAllHitboxes(),
           ...this.arena.targetMeshes
         ];
-        weapon.updateLaserAim(targets);
+        weapon.updateLaserAim?.(targets);
       }
 
       this.particleSystem.update(delta);
       this.scoreManager.update(delta);
       this.gameState.update(delta);
     } else {
-      // 2. Estado GAME_OVER, MAIN_MENU o PAUSED
+      // 2. Estado GAME_OVER, MAIN_MENU, PAUSED o STORE
       this.particleSystem.update(delta);
 
+      // Si está en VR y la Cyber Store 3D está visible
+      if (this.isVRActive && this.vrStore.isVisible()) {
+        this.inputManager.update(delta);
+        const shootTriggered = this.inputManager.consumeShootTriggered();
+        const shootRay = this.player.getShootRay();
+        this.vrStore.update(shootRay.origin, shootRay.direction, shootTriggered);
+
+        const weapon = this.weaponManager.getActiveWeapon();
+        weapon.updateLaserAim?.(this.vrStore.group.children);
+      }
       // Si está en VR y el menú 3D está visible
-      if (this.isVRActive && this.vrMenu.isVisible()) {
+      else if (this.isVRActive && this.vrMenu.isVisible()) {
         this.inputManager.update(delta);
 
         // Si se presiona el botón de pausa en el mando izquierdo mientras estamos en pausa, reanudar
@@ -530,7 +640,7 @@ export class Game {
         this.vrMenu.update(shootRay.origin, shootRay.direction, shootTriggered);
 
         const weapon = this.weaponManager.getActiveWeapon();
-        weapon.updateLaserAim(this.vrMenu.group.children);
+        weapon.updateLaserAim?.(this.vrMenu.group.children);
       }
     }
 

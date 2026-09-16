@@ -24,6 +24,9 @@ export class WaveManager {
   private uiManager: UIManager;
 
   public currentPhaseIndex: number = 0;
+  public isInStore: boolean = false;
+  public onOpenStore?: () => void;
+  public onEnemyKilledCallback?: (enemy: any, isHeadshot: boolean) => void;
   private isIntermission: boolean = true;
   private intermissionTimer: number = 3.0;
   private spawnQueue: EnemyType[] = [];
@@ -111,6 +114,7 @@ export class WaveManager {
       this.scoreManager.registerKill(isHeadshot);
       this.enemiesDefeatedInPhase++;
       this.updateHudStatus();
+      this.onEnemyKilledCallback?.(enemy, isHeadshot);
     };
   }
 
@@ -187,6 +191,10 @@ export class WaveManager {
   }
 
   public update(delta: number): void {
+    if (this.isInStore) {
+      return; // Detenido mientras el jugador compra mejoras
+    }
+
     if (this.isIntermission) {
       this.intermissionTimer -= delta;
       const countSeconds = Math.ceil(this.intermissionTimer);
@@ -237,7 +245,21 @@ export class WaveManager {
       'combo'
     );
 
-    // 2. Avanzar a la siguiente fase
+    // 2. Comprobar si cada 3 fases se debe abrir la Cyber Store
+    const completedPhaseNum = this.currentPhaseIndex + 1;
+    if (completedPhaseNum % 3 === 0 && this.onOpenStore) {
+      this.isInStore = true;
+      this.onOpenStore();
+      return;
+    }
+
+    // Avanzar a la siguiente fase
+    this.currentPhaseIndex++;
+    this.preparePhase(this.currentPhaseIndex);
+  }
+
+  public continueAfterStore(): void {
+    this.isInStore = false;
     this.currentPhaseIndex++;
     this.preparePhase(this.currentPhaseIndex);
   }
@@ -250,7 +272,17 @@ export class WaveManager {
     p.x += (Math.random() - 0.5) * 1.5;
     p.z += (Math.random() - 0.5) * 1.5;
 
-    this.enemyManager.spawnEnemy(type, p);
+    const enemy = this.enemyManager.spawnEnemy(type, p);
+
+    // Escalado de dificultad dinámico: Cada ciclo de 3 fases aumenta HP (+25%) y Velocidad (+10%)
+    const difficultyCycle = Math.floor(this.currentPhaseIndex / 3);
+    if (difficultyCycle > 0) {
+      const hpMult = 1 + difficultyCycle * 0.25;
+      const speedMult = 1 + difficultyCycle * 0.10;
+      enemy.config.maxHealth = Math.round(enemy.config.maxHealth * hpMult);
+      enemy.health = enemy.config.maxHealth;
+      enemy.config.speed = Number((enemy.config.speed * speedMult).toFixed(2));
+    }
   }
 
   public getCurrentPhaseConfig(): PhaseConfig {

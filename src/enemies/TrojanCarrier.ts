@@ -18,6 +18,7 @@ export class TrojanCarrier extends Enemy {
     });
 
     this.model.position.copy(spawnPos);
+    this.enemyType = 'trojan';
 
     // Materiales
     const armorMat = new THREE.MeshStandardMaterial({

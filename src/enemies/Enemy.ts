@@ -22,6 +22,7 @@ export abstract class Enemy {
   public health: number;
   public state: EnemyState = EnemyState.CHASE;
   public isDead: boolean = false;
+  public enemyType: 'virus' | 'worm' | 'trojan' | 'ransomware' = 'virus';
 
   public model: THREE.Group;
   public hitboxes: THREE.Mesh[] = [];

@@ -78,6 +78,10 @@
           <span class="hud-label">MULTIPLICADOR</span>
           <span id="combo-display" class="hud-value">x1.0</span>
         </div>
+        <div class="hud-box bits-box">
+          <span class="hud-label">DATA BITS</span>
+          <span id="bits-display" class="hud-value cyber-bits">0000 💾</span>
+        </div>
       </div>
 
       <!-- Center floating alerts (Headshot, Combo, Wave Clear) -->
@@ -169,6 +173,29 @@
         </div>
 
         <div id="vr-status" class="vr-notice">Soporte WebXR VR listo // Meta Quest Compatible</div>
+      </div>
+    </div>
+
+    <!-- Cyber Store Overlay for Desktop -->
+    <div id="store-overlay" class="overlay hidden">
+      <div class="overlay-card store-card">
+        <div class="cyber-header">
+          <div class="antivirus-icon">🛒</div>
+          <div>
+            <div class="cyber-badge">MERCADO NEGRO DEL KERNEL // ACCESO CONCEDIDO</div>
+            <h2 class="game-title" style="font-size: 2.2rem; margin: 0;">CYBER STORE</h2>
+          </div>
+        </div>
+        <div class="store-balance-row">
+          <span>SALDO DISPONIBLE:</span>
+          <span id="store-bits-display" class="highlight-bits">0000 💾 BITS</span>
+        </div>
+        <div id="store-items-container" class="store-grid">
+          <!-- Tarjetas de mejoras y armas generadas por JS -->
+        </div>
+        <button id="store-continue-btn" class="cyber-button pulse-btn" style="margin-top: 18px; width: 100%;">
+          <span class="btn-text">🚀 CONTINUAR PURGA // SIGUIENTE FASE</span>
+        </button>
       </div>
     </div>
 

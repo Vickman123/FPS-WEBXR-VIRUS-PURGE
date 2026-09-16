@@ -12,6 +12,7 @@ export class VRWristHUD {
   private statusText: string = 'FASE 1 // CACHÉ';
   private score: number = 0;
   private combo: number = 1.0;
+  private bits: number = 0;
 
   private isDirty: boolean = true;
 
@@ -80,6 +81,14 @@ export class VRWristHUD {
     }
   }
 
+  public updateBits(bits: number): void {
+    if (bits !== this.bits) {
+      this.bits = bits;
+      this.isDirty = true;
+      this.renderCanvas();
+    }
+  }
+
   private renderCanvas(): void {
     if (!this.isDirty) return;
     this.isDirty = false;
@@ -118,10 +127,14 @@ export class VRWristHUD {
     ctx.fillStyle = this.healthPct > 30 ? '#00f3ff' : '#ff0055';
     ctx.fillRect(10, 62, (236 * this.healthPct) / 100, 8);
 
-    // 3. Munición
+    // 3. Munición y Bits
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 11px monospace';
     ctx.fillText(`BÚFER: ${this.currentAmmo} / ${this.maxAmmo}`, 10, 92);
+
+    ctx.fillStyle = '#fbbf24';
+    ctx.font = 'bold 11px monospace';
+    ctx.fillText(`💾 ${this.bits} BITS`, 150, 92);
 
     // 4. Score y Combo
     ctx.fillStyle = '#fbbf24';

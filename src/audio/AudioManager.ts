@@ -303,6 +303,178 @@ export class AudioManager {
     osc.stop(now + 1.25);
   }
 
+  /**
+   * Recolección de Bit/Data Core: arpegio digital cristalino
+   */
+  public playCoinPickup(): void {
+    if (!this.ctx || !this.masterGain || this.isMuted) return;
+    const now = this.ctx.currentTime;
+
+    const pitches = [1320, 1760]; // E6 -> A6
+    pitches.forEach((freq, idx) => {
+      const t = now + idx * 0.045;
+      const osc = this.ctx!.createOscillator();
+      const gain = this.ctx!.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, t);
+      osc.frequency.exponentialRampToValueAtTime(freq * 1.2, t + 0.1);
+
+      gain.gain.setValueAtTime(0.22, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+
+      osc.connect(gain);
+      gain.connect(this.masterGain!);
+
+      osc.start(t);
+      osc.stop(t + 0.11);
+    });
+  }
+
+  /**
+   * Apertura de terminal holográfica de la Cyber Store
+   */
+  public playStoreOpen(): void {
+    if (!this.ctx || !this.masterGain || this.isMuted) return;
+    const now = this.ctx.currentTime;
+
+    const notes = [440, 660, 880, 1320];
+    notes.forEach((freq, idx) => {
+      const t = now + idx * 0.06;
+      const osc = this.ctx!.createOscillator();
+      const gain = this.ctx!.createGain();
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, t);
+
+      gain.gain.setValueAtTime(0.28, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+
+      osc.connect(gain);
+      gain.connect(this.masterGain!);
+
+      osc.start(t);
+      osc.stop(t + 0.26);
+    });
+  }
+
+  /**
+   * Compra exitosa / Overclock aplicado
+   */
+  public playPurchaseSuccess(): void {
+    if (!this.ctx || !this.masterGain || this.isMuted) return;
+    const now = this.ctx.currentTime;
+
+    const notes = [587.33, 880, 1174.66]; // D5, A5, D6
+    notes.forEach((freq, idx) => {
+      const t = now + idx * 0.07;
+      const osc = this.ctx!.createOscillator();
+      const gain = this.ctx!.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, t);
+
+      gain.gain.setValueAtTime(0.35, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+
+      osc.connect(gain);
+      gain.connect(this.masterGain!);
+
+      osc.start(t);
+      osc.stop(t + 0.24);
+    });
+  }
+
+  /**
+   * Compra fallida / Fondos insuficientes
+   */
+  public playPurchaseFailed(): void {
+    if (!this.ctx || !this.masterGain || this.isMuted) return;
+    const now = this.ctx.currentTime;
+
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(160, now);
+    osc.frequency.setValueAtTime(120, now + 0.08);
+
+    gain.gain.setValueAtTime(0.35, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+
+    osc.start(now);
+    osc.stop(now + 0.23);
+  }
+
+  /**
+   * Disparo pesado de Escopeta Scatter
+   */
+  public playShotgunShot(): void {
+    if (!this.ctx || !this.masterGain || this.isMuted) return;
+    const now = this.ctx.currentTime;
+
+    const osc = this.ctx.createOscillator();
+    const oscGain = this.ctx.createGain();
+
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(320, now);
+    osc.frequency.exponentialRampToValueAtTime(45, now + 0.28);
+
+    oscGain.gain.setValueAtTime(0.95, now);
+    oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+
+    const noiseBuffer = this.createNoiseBuffer(0.18);
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = noiseBuffer;
+
+    const noiseFilter = this.ctx.createBiquadFilter();
+    noiseFilter.type = 'lowpass';
+    noiseFilter.frequency.setValueAtTime(800, now);
+
+    const noiseGain = this.ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.9, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+
+    osc.connect(oscGain);
+    oscGain.connect(this.masterGain);
+
+    noise.connect(noiseFilter);
+    noiseFilter.connect(noiseGain);
+    noiseGain.connect(this.masterGain);
+
+    osc.start(now);
+    noise.start(now);
+    osc.stop(now + 0.3);
+    noise.stop(now + 0.2);
+  }
+
+  /**
+   * Disparo ultrarrápido de Subfusil Plasma SMG
+   */
+  public playSMGShot(): void {
+    if (!this.ctx || !this.masterGain || this.isMuted) return;
+    const now = this.ctx.currentTime;
+
+    const osc = this.ctx.createOscillator();
+    const oscGain = this.ctx.createGain();
+
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(720, now);
+    osc.frequency.exponentialRampToValueAtTime(140, now + 0.07);
+
+    oscGain.gain.setValueAtTime(0.5, now);
+    oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+
+    osc.connect(oscGain);
+    oscGain.connect(this.masterGain);
+
+    osc.start(now);
+    osc.stop(now + 0.08);
+  }
+
   private createNoiseBuffer(duration: number): AudioBuffer {
     if (!this.ctx) throw new Error('AudioContext no inicializado');
     const bufferSize = this.ctx.sampleRate * duration;
