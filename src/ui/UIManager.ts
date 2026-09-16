@@ -13,6 +13,12 @@ export class UIManager {
   private overlayEl: HTMLElement | null;
   private startBtnEl: HTMLElement | null;
 
+  // Boss HUD
+  private bossHudEl: HTMLElement | null;
+  private bossNameEl: HTMLElement | null;
+  private bossPercentEl: HTMLElement | null;
+  private bossBarFillEl: HTMLElement | null;
+
   private hitmarkerTimeout: number | null = null;
   private damageVignetteTimeout: number | null = null;
 
@@ -32,6 +38,11 @@ export class UIManager {
     this.damageVignetteEl = document.getElementById('damage-vignette');
     this.overlayEl = document.getElementById('overlay');
     this.startBtnEl = document.getElementById('start-btn');
+
+    this.bossHudEl = document.getElementById('boss-hud');
+    this.bossNameEl = document.getElementById('boss-name');
+    this.bossPercentEl = document.getElementById('boss-percent');
+    this.bossBarFillEl = document.getElementById('boss-bar-fill');
 
     if (this.startBtnEl) {
       this.startBtnEl.addEventListener('click', () => {
@@ -145,6 +156,28 @@ export class UIManager {
     }
   }
 
+  public showBossBar(show: boolean, name?: string): void {
+    if (!this.bossHudEl) return;
+    if (show) {
+      this.bossHudEl.classList.remove('hidden');
+      if (name && this.bossNameEl) {
+        this.bossNameEl.textContent = name;
+      }
+    } else {
+      this.bossHudEl.classList.add('hidden');
+    }
+  }
+
+  public updateBossHealth(current: number, max: number): void {
+    const pct = Math.max(0, Math.min(100, (current / max) * 100));
+    if (this.bossBarFillEl) {
+      this.bossBarFillEl.style.width = `${pct}%`;
+    }
+    if (this.bossPercentEl) {
+      this.bossPercentEl.textContent = `${Math.round(pct)}%`;
+    }
+  }
+
   public showCombatAlert(text: string, type: 'kill' | 'headshot' | 'combo'): void {
     if (!this.alertsEl) return;
 
@@ -157,7 +190,7 @@ export class UIManager {
       if (alert.parentNode) {
         alert.parentNode.removeChild(alert);
       }
-    }, 850);
+    }, 900);
   }
 
   public showOverlay(show: boolean, title?: string, btnText?: string): void {

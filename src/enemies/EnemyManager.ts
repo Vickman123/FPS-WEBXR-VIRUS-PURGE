@@ -1,18 +1,26 @@
 import * as THREE from 'three';
 import { Enemy } from './Enemy';
 import { VirusDrone } from './VirusDrone';
+import { WormSpreader } from './WormSpreader';
+import { TrojanCarrier } from './TrojanCarrier';
+import { RansomwareBoss } from './RansomwareBoss';
 import { ParticleSystem } from '../systems/ParticleSystem';
 import { AudioManager } from '../audio/AudioManager';
+
+export type EnemyType = 'virus' | 'worm' | 'trojan' | 'ransomware';
 
 export class EnemyManager {
   private scene: THREE.Scene;
   private particleSystem: ParticleSystem;
   private audioManager: AudioManager;
   public enemies: Enemy[] = [];
+  public activeBoss: RansomwareBoss | null = null;
 
   // Callbacks
   public onEnemyKilled?: (enemy: Enemy, isHeadshot: boolean) => void;
   public onPlayerDamaged?: (amount: number) => void;
+  public onBossHealthUpdate?: (current: number, max: number) => void;
+  public onBossKilled?: () => void;
 
   constructor(scene: THREE.Scene, particleSystem: ParticleSystem, audioManager: AudioManager) {
     this.scene = scene;
@@ -20,39 +28,71 @@ export class EnemyManager {
     this.audioManager = audioManager;
   }
 
-  public spawnDrone(position: THREE.Vector3): Enemy {
-    const drone = new VirusDrone(position);
+  public spawnEnemy(type: EnemyType, position: THREE.Vector3): Enemy {
+    let enemy: Enemy;
 
-    drone.onDie = (enemy, isHeadshot) => {
-      this.handleEnemyDeath(enemy, isHeadshot);
+    switch (type) {
+      case 'worm':
+        enemy = new WormSpreader(position);
+        break;
+      case 'trojan':
+        enemy = new TrojanCarrier(position);
+        break;
+      case 'ransomware':
+        const boss = new RansomwareBoss(position);
+        this.activeBoss = boss;
+        this.audioManager.playBossSpawn();
+        enemy = boss;
+        break;
+      case 'virus':
+      default:
+        enemy = new VirusDrone(position);
+        break;
+    }
+
+    enemy.onTakeDamage = (_dmg, _headshot) => {
+      if (enemy === this.activeBoss && this.onBossHealthUpdate) {
+        this.onBossHealthUpdate(enemy.health, enemy.config.maxHealth);
+      }
     };
 
-    drone.onAttackPlayer = (damage) => {
+    enemy.onDie = (deadEnemy, isHeadshot) => {
+      this.handleEnemyDeath(deadEnemy, isHeadshot);
+    };
+
+    enemy.onAttackPlayer = (damage) => {
       if (this.onPlayerDamaged) {
         this.onPlayerDamaged(damage);
       }
     };
 
-    this.enemies.push(drone);
-    this.scene.add(drone.model);
-    return drone;
+    this.enemies.push(enemy);
+    this.scene.add(enemy.model);
+    return enemy;
+  }
+
+  public spawnDrone(position: THREE.Vector3): Enemy {
+    return this.spawnEnemy('virus', position);
   }
 
   private handleEnemyDeath(enemy: Enemy, isHeadshot: boolean): void {
-    // Generar partículas de desintegración
-    this.particleSystem.emitEnemyDisintegration(enemy.getPosition());
-    // Sonido de muerte
+    const isBoss = enemy instanceof RansomwareBoss;
+    this.particleSystem.emitEnemyDisintegration(enemy.getPosition(), isBoss);
     this.audioManager.playEnemyDeath();
 
-    // Eliminar de Three.js escena
     this.scene.remove(enemy.model);
 
-    // Notificar al ScoreManager / WaveManager
+    if (isBoss) {
+      this.activeBoss = null;
+      if (this.onBossKilled) {
+        this.onBossKilled();
+      }
+    }
+
     if (this.onEnemyKilled) {
       this.onEnemyKilled(enemy, isHeadshot);
     }
 
-    // Remover del arreglo
     const index = this.enemies.indexOf(enemy);
     if (index !== -1) {
       this.enemies.splice(index, 1);
@@ -87,5 +127,6 @@ export class EnemyManager {
       this.scene.remove(enemy.model);
     }
     this.enemies = [];
+    this.activeBoss = null;
   }
 }

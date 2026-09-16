@@ -9,6 +9,7 @@ import { EnemyManager } from '../enemies/EnemyManager';
 import { DamageSystem } from '../systems/DamageSystem';
 import { ParticleSystem } from '../systems/ParticleSystem';
 import { ScoreManager } from '../systems/ScoreManager';
+import { WaveManager } from '../systems/WaveManager';
 import { AudioManager } from '../audio/AudioManager';
 import { UIManager } from '../ui/UIManager';
 
@@ -29,10 +30,9 @@ export class Game {
   public weaponManager: WeaponManager;
   public enemyManager: EnemyManager;
   public damageSystem: DamageSystem;
+  public waveManager: WaveManager;
   public player: Player;
   public uiManager: UIManager;
-
-  private enemySpawnTimer: number = 0;
 
   constructor() {
     this.clock = new THREE.Clock();
@@ -49,14 +49,13 @@ export class Game {
     this.renderer.xr.enabled = true;
     container.appendChild(this.renderer.domElement);
 
-    // 2. Escena y fondo atmosférico sci-fi
+    // 2. Escena y fondo atmosférico de placa base (PCB)
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x0a1120);
-    this.scene.fog = new THREE.FogExp2(0x0a1120, 0.012);
+    this.scene.background = new THREE.Color(0x060f1c);
+    this.scene.fog = new THREE.FogExp2(0x060f1c, 0.012);
 
     // 3. Cámara principal
     this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 150);
-    // ¡CRÍTICO: Agregar la cámara a la escena para que los objetos hijos (el arma) se rendericen!
     this.scene.add(this.camera);
 
     // 4. Instanciar subsistemas independientes
@@ -67,21 +66,22 @@ export class Game {
     this.particleSystem = new ParticleSystem();
     this.scene.add(this.particleSystem.group);
 
+    // 5. Escenario Motherboard
     this.arena = new Arena();
     this.scene.add(this.arena.group);
 
-    // 5. Sistema de entrada desacoplado
+    // 6. Sistema de entrada desacoplado
     this.desktopInput = new DesktopInput(this.renderer.domElement);
     this.inputManager = new InputManager(this.desktopInput);
 
-    // 6. Armas y Jugador
+    // 7. Armas y Jugador
     this.weaponManager = new WeaponManager();
     this.player = new Player(this.camera, this.inputManager, this.arena, this.weaponManager);
 
-    // 7. Sistema de Enemigos
+    // 8. Sistema de Enemigos
     this.enemyManager = new EnemyManager(this.scene, this.particleSystem, this.audioManager);
 
-    // 8. Sistema de Daño
+    // 9. Sistema de Daño
     this.damageSystem = new DamageSystem(
       this.enemyManager,
       this.particleSystem,
@@ -90,23 +90,30 @@ export class Game {
       this.arena
     );
 
-    // 9. Enlazar eventos y callbacks
+    // 10. Sistema de Oleadas / Fases Arcade (VIRUS PURGE)
+    this.waveManager = new WaveManager(
+      this.enemyManager,
+      this.arena,
+      this.audioManager,
+      this.scoreManager,
+      this.player,
+      this.uiManager
+    );
+
+    // 11. Enlazar eventos y callbacks
     this.setupEventBindings();
 
-    // 10. Actualizar valores iniciales del HUD
+    // 12. Actualizar valores iniciales del HUD
     const weapon = this.weaponManager.getActiveWeapon();
     this.uiManager.updateHealth(this.player.health, this.player.maxHealth);
     this.uiManager.updateAmmo(weapon.currentAmmo, weapon.config.magSize);
     this.uiManager.updateScore(0);
     this.uiManager.updateCombo(1.0);
 
-    // 11. Spawn inicial visible frente al jugador
-    this.spawnInitialTargets();
-
-    // 12. Redimensionamiento de ventana
+    // 13. Redimensionamiento de ventana
     window.addEventListener('resize', this.onWindowResize.bind(this));
 
-    // 13. Iniciar bucle de render (compatible con WebXR)
+    // 14. Iniciar bucle de render
     this.renderer.setAnimationLoop(this.animate.bind(this));
   }
 
@@ -116,19 +123,20 @@ export class Game {
       this.audioManager.init();
 
       if (this.gameState.getState() === GameStateEnum.GAME_OVER) {
-        // Reiniciar partida
         this.restartGame();
       } else {
+        this.audioManager.playAlarm();
         this.desktopInput.requestLock();
         this.gameState.setState(GameStateEnum.PLAYING);
         this.uiManager.showOverlay(false);
+        this.waveManager.start();
       }
     };
 
     this.desktopInput.onLockChange = (locked) => {
       if (!locked && this.gameState.getState() === GameStateEnum.PLAYING) {
         this.gameState.setState(GameStateEnum.PAUSED);
-        this.uiManager.showOverlay(true, 'PAUSA', 'CONTINUAR');
+        this.uiManager.showOverlay(true, 'DEPURACIÓN EN PAUSA', 'CONTINUAR');
       } else if (locked && this.gameState.getState() === GameStateEnum.PAUSED) {
         this.gameState.setState(GameStateEnum.PLAYING);
         this.uiManager.showOverlay(false);
@@ -164,16 +172,22 @@ export class Game {
       this.uiManager.showCombatAlert(text, type);
     };
 
-    // Eventos de eliminación de enemigos
-    this.enemyManager.onEnemyKilled = (_enemy, isHeadshot) => {
-      this.scoreManager.registerKill(isHeadshot);
-    };
-
     // Daño hacia el jugador
     this.enemyManager.onPlayerDamaged = (amount) => {
       this.player.takeDamage(amount);
       this.audioManager.playPlayerHurt();
       this.uiManager.triggerDamageFlash();
+    };
+
+    // Eventos de Boss
+    this.enemyManager.onBossHealthUpdate = (current, max) => {
+      this.uiManager.showBossBar(true, 'RANSOMWARE.LOCKBIT.CORE // AMENAZA NIVEL 5');
+      this.uiManager.updateBossHealth(current, max);
+    };
+
+    this.enemyManager.onBossKilled = () => {
+      this.uiManager.showBossBar(false);
+      this.uiManager.showCombatAlert('¡NÚCLEO RANSOMWARE PURGADO!', 'headshot');
     };
 
     this.player.onHealthChange = (curr, max) => {
@@ -183,10 +197,11 @@ export class Game {
     this.player.onDeath = () => {
       this.gameState.setState(GameStateEnum.GAME_OVER);
       const stats = this.scoreManager.getStats();
+      this.uiManager.showBossBar(false);
       this.uiManager.showOverlay(
         true,
-        'SIMULACIÓN TERMINADA',
-        `REINTENTAR // SCORE: ${stats.score} (ACC: ${stats.accuracy}%)`
+        'SISTEMA COMPROMETIDO',
+        `REINICIAR PROTOCOLO // SCORE: ${stats.score} (ACC: ${stats.accuracy}%)`
       );
       if (document.pointerLockElement) {
         document.exitPointerLock();
@@ -205,18 +220,12 @@ export class Game {
     this.uiManager.updateAmmo(weapon.currentAmmo, weapon.config.magSize);
     this.uiManager.updateHealth(this.player.health, this.player.maxHealth);
     this.uiManager.resetVignette();
+    this.uiManager.showBossBar(false);
 
-    this.spawnInitialTargets();
     this.desktopInput.requestLock();
     this.gameState.setState(GameStateEnum.PLAYING);
     this.uiManager.showOverlay(false);
-  }
-
-  private spawnInitialTargets(): void {
-    // 3 Drones colocados claramente frente al jugador en z = 0 y z = -3
-    this.enemyManager.spawnDrone(new THREE.Vector3(-4, 1.5, 0));
-    this.enemyManager.spawnDrone(new THREE.Vector3(0, 1.5, -3));
-    this.enemyManager.spawnDrone(new THREE.Vector3(4, 1.5, 0));
+    this.waveManager.reset();
   }
 
   private handlePlayerInput(): void {
@@ -250,14 +259,7 @@ export class Game {
       this.player.update(delta);
       this.weaponManager.update(delta);
       this.enemyManager.update(delta, this.player.position);
-
-      if (this.enemyManager.getActiveCount() === 0) {
-        this.enemySpawnTimer += delta;
-        if (this.enemySpawnTimer >= 1.5) {
-          this.enemySpawnTimer = 0;
-          this.spawnWave();
-        }
-      }
+      this.waveManager.update(delta);
 
       this.particleSystem.update(delta);
       this.scoreManager.update(delta);
@@ -267,16 +269,6 @@ export class Game {
     }
 
     this.renderer.render(this.scene, this.camera);
-  }
-
-  private spawnWave(): void {
-    const points = this.arena.spawnPoints;
-    const count = Math.min(4, points.length);
-    for (let i = 0; i < count; i++) {
-      const p = points[Math.floor(Math.random() * points.length)];
-      this.enemyManager.spawnDrone(p.clone());
-    }
-    this.uiManager.showCombatAlert('NUEVO ENJAMBRE DETECTADO', 'combo');
   }
 
   private onWindowResize(): void {

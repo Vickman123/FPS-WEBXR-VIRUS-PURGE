@@ -15,8 +15,7 @@ export class DamageSystem {
   private scoreManager: ScoreManager;
   private arena: Arena;
 
-  // Callback para activar hitmarker en la UI
-  public onHitRegistered?: (isHeadshot: boolean) => void;
+  public onHitRegistered?: (isHeadshot: boolean, isShield?: boolean) => void;
 
   constructor(
     enemyManager: EnemyManager,
@@ -33,23 +32,17 @@ export class DamageSystem {
     this.arena = arena;
   }
 
-  /**
-   * Ejecuta el disparo de un arma mediante raycasting
-   */
   public processShot(origin: THREE.Vector3, direction: THREE.Vector3, weapon: Weapon): void {
     this.scoreManager.registerShot();
 
-    // Muzzle position para el origen visual del trazador de plasma
     const muzzlePos = new THREE.Vector3();
     weapon.getMuzzleWorldPosition(muzzlePos);
 
     this.raycaster.set(origin, direction);
     this.raycaster.far = 100;
 
-    // Obtener hitboxes de todos los enemigos activos
     const enemyHitboxes = this.enemyManager.getAllHitboxes();
 
-    // Obtener mallas de la arena para impacto en paredes/coberturas
     const arenaMeshes: THREE.Object3D[] = [];
     this.arena.group.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
@@ -69,32 +62,39 @@ export class DamageSystem {
       // 1. ¿Es una hitbox de un enemigo?
       if (hitMesh.userData && hitMesh.userData.isHitbox) {
         const isHeadshot = !!hitMesh.userData.isHeadshot;
+        const isShield = !!hitMesh.userData.isShield;
         const enemy = hitMesh.userData.enemy as Enemy;
 
-        // Calcular daño
-        const baseDamage = weapon.config.damage;
-        const finalDamage = isHeadshot ? baseDamage * weapon.config.headshotMultiplier : baseDamage;
+        let finalDamage = weapon.config.damage;
 
-        // Aplicar daño
+        if (isShield) {
+          // El escudo digital mitiga el 80% del daño
+          finalDamage *= 0.2;
+          this.audioManager.playShieldDeflect();
+          this.particleSystem.emitImpactSparks(hitPoint, normal, false, false);
+          this.particleSystem.createBulletTracer(muzzlePos, hitPoint, false);
+        } else {
+          if (isHeadshot) {
+            finalDamage *= weapon.config.headshotMultiplier;
+          }
+          this.audioManager.playHit(isHeadshot);
+          this.particleSystem.emitImpactSparks(hitPoint, normal, true, isHeadshot);
+          this.particleSystem.createBulletTracer(muzzlePos, hitPoint, isHeadshot);
+        }
+
         enemy.takeDamage(finalDamage, isHeadshot);
-
-        // Feedback sonoro y visual
-        this.audioManager.playHit(isHeadshot);
-        this.particleSystem.emitImpactSparks(hitPoint, normal, true, isHeadshot);
-        this.particleSystem.createBulletTracer(muzzlePos, hitPoint, isHeadshot);
-
         this.scoreManager.registerHit();
 
         if (this.onHitRegistered) {
-          this.onHitRegistered(isHeadshot);
+          this.onHitRegistered(isHeadshot, isShield);
         }
       } else {
-        // 2. Impacto contra la arena (pared o cobertura)
+        // 2. Impacto contra la arena
         this.particleSystem.emitImpactSparks(hitPoint, normal, false, false);
         this.particleSystem.createBulletTracer(muzzlePos, hitPoint, false);
       }
     } else {
-      // 3. Disparo al vacío (hasta el rango máximo)
+      // 3. Disparo al vacío
       const distantPoint = origin.clone().add(direction.clone().multiplyScalar(60));
       this.particleSystem.createBulletTracer(muzzlePos, distantPoint, false);
     }
