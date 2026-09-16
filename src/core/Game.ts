@@ -345,6 +345,12 @@ export class Game {
       this.enemyManager.update(delta, this.player.position);
       this.waveManager.update(delta);
 
+      if (this.isVRActive) {
+        const weapon = this.weaponManager.getActiveWeapon();
+        const targets = [...this.enemyManager.getAllHitboxes(), ...this.arena.targetMeshes];
+        weapon.updateLaserAim(targets);
+      }
+
       this.particleSystem.update(delta);
       this.scoreManager.update(delta);
       this.gameState.update(delta);

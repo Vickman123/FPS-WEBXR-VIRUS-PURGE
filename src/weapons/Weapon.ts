@@ -84,5 +84,23 @@ export abstract class Weapon {
     return this.muzzleObject.getWorldPosition(target);
   }
 
+  /**
+   * Devuelve el origen y la dirección del cañón del arma en coordenadas del mundo.
+   * En VR esto garantiza que la bala y el haz láser coincidan con 100% de precisión milimétrica.
+   */
+  public getMuzzleRay(): { origin: THREE.Vector3; direction: THREE.Vector3 } {
+    this.model.updateMatrixWorld(true);
+    const origin = new THREE.Vector3();
+    this.muzzleObject.getWorldPosition(origin);
+
+    const quat = new THREE.Quaternion();
+    this.muzzleObject.getWorldQuaternion(quat);
+    const direction = new THREE.Vector3(0, 0, -1).applyQuaternion(quat).normalize();
+
+    return { origin, direction };
+  }
+
+  public updateLaserAim?(_targets: THREE.Object3D[]): void;
+
   public abstract playRecoil(): void;
 }

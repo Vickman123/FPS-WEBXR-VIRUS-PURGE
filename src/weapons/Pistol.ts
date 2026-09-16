@@ -18,6 +18,8 @@ export class Pistol extends Weapon {
   private muzzleLight: THREE.PointLight;
   private muzzleFlashMesh: THREE.Mesh;
   private laserSight: THREE.Line;
+  private laserDot: THREE.Mesh;
+  private laserRaycaster: THREE.Raycaster = new THREE.Raycaster();
   private flashTimer: number = 0;
 
   constructor() {
@@ -33,6 +35,7 @@ export class Pistol extends Weapon {
     this.muzzleLight = new THREE.PointLight(0x00f3ff, 0, 8);
     this.muzzleFlashMesh = this.buildMuzzleFlash();
     this.laserSight = this.buildLaserSight();
+    this.laserDot = this.buildLaserDot();
     this.buildModel();
 
     this.model.position.copy(this.desktopPosition);
@@ -130,8 +133,9 @@ export class Pistol extends Weapon {
     this.muzzleFlashMesh.position.set(0, 0.02, -0.28);
     gunGroup.add(this.muzzleFlashMesh);
 
-    // Puntero láser táctico para VR
+    // Puntero láser táctico para VR y punto de retícula de impacto
     gunGroup.add(this.laserSight);
+    gunGroup.add(this.laserDot);
 
     this.model.add(gunGroup);
   }
@@ -149,24 +153,44 @@ export class Pistol extends Weapon {
   }
 
   private buildLaserSight(): THREE.Line {
-    const points = [
-      new THREE.Vector3(0, 0.02, -0.27),
-      new THREE.Vector3(0, 0.02, -25.0)
-    ];
-    const geo = new THREE.BufferGeometry().setFromPoints(points);
+    const positions = new Float32Array([
+      0, 0.02, -0.27,
+      0, 0.02, -30.0
+    ]);
+    const geo = new THREE.BufferGeometry();
+    const posAttr = new THREE.BufferAttribute(positions, 3);
+    posAttr.setUsage(THREE.DynamicDrawUsage);
+    geo.setAttribute('position', posAttr);
+
     const mat = new THREE.LineBasicMaterial({
       color: 0x00f3ff,
       transparent: true,
-      opacity: 0.45
+      opacity: 0.65
     });
     const line = new THREE.Line(geo, mat);
+    line.frustumCulled = false;
     line.visible = false; // Solo se activa en modo VR
     return line;
+  }
+
+  private buildLaserDot(): THREE.Mesh {
+    const dotGeo = new THREE.SphereGeometry(0.016, 8, 8);
+    const dotMat = new THREE.MeshBasicMaterial({
+      color: 0x00f3ff,
+      transparent: true,
+      opacity: 0.95
+    });
+    const mesh = new THREE.Mesh(dotGeo, dotMat);
+    mesh.position.set(0, 0.02, -30.0);
+    mesh.frustumCulled = false;
+    mesh.visible = false;
+    return mesh;
   }
 
   public setVRMode(inVR: boolean): void {
     this.isVR = inVR;
     this.laserSight.visible = inVR;
+    this.laserDot.visible = inVR;
 
     if (inVR) {
       this.model.position.copy(this.vrPosition);
@@ -175,6 +199,40 @@ export class Pistol extends Weapon {
       this.model.position.copy(this.desktopPosition);
       this.model.rotation.copy(this.desktopRotation);
     }
+  }
+
+  /**
+   * Actualiza dinámicamente la longitud del haz láser y el punto de mira para que termine
+   * exactamente sobre la superficie del objetivo (enemigo o pared) en tiempo real.
+   */
+  public override updateLaserAim(targets: THREE.Object3D[]): void {
+    if (!this.isVR || !this.laserSight.visible) return;
+
+    this.model.updateMatrixWorld(true);
+    const origin = new THREE.Vector3();
+    this.muzzleObject.getWorldPosition(origin);
+
+    const quat = new THREE.Quaternion();
+    this.muzzleObject.getWorldQuaternion(quat);
+    const direction = new THREE.Vector3(0, 0, -1).applyQuaternion(quat).normalize();
+
+    this.laserRaycaster.set(origin, direction);
+    this.laserRaycaster.far = 40;
+
+    const hits = this.laserRaycaster.intersectObjects(targets, false);
+    let hitDistance = 30.0;
+    if (hits.length > 0) {
+      hitDistance = Math.max(0.1, hits[0].distance);
+    }
+
+    // Actualizar el vértice final del haz láser en coordenadas locales de gunGroup
+    const posAttr = (this.laserSight.geometry as THREE.BufferGeometry).attributes.position as THREE.BufferAttribute;
+    const array = posAttr.array as Float32Array;
+    array[5] = -0.27 - hitDistance;
+    posAttr.needsUpdate = true;
+
+    // Colocar el punto retícula en el punto exacto de colisión
+    this.laserDot.position.set(0, 0.02, -0.27 - hitDistance);
   }
 
   public override playRecoil(): void {

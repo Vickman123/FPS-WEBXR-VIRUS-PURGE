@@ -47,6 +47,7 @@ export class ParticleSystem {
     });
 
     const line = new THREE.Line(geo, mat);
+    line.frustumCulled = false;
     this.group.add(line);
     this.tracers.push({
       line,

@@ -202,12 +202,18 @@ export class Player {
 
   /**
    * Obtiene el rayo de disparo:
-   * - En VR: Dirección exacta de la mano derecha física (Right Controller)
-   * - En PC: Centro de la cámara
+   * - En VR: Dirección y origen EXACTOS del cañón del arma (Muzzle Ray) para alineación 100% con el láser
+   * - En PC: Centro de la cámara hacia la retícula central
    */
   public getShootRay(): { origin: THREE.Vector3; direction: THREE.Vector3 } {
-    if (this.isVR && this.vrInput) {
-      return this.vrInput.getAimRay();
+    if (this.isVR) {
+      const activeWeapon = this.weaponManager.getActiveWeapon();
+      if (activeWeapon) {
+        return activeWeapon.getMuzzleRay();
+      }
+      if (this.vrInput) {
+        return this.vrInput.getAimRay();
+      }
     }
 
     const direction = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion);
