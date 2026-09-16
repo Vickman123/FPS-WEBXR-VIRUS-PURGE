@@ -44,25 +44,30 @@ export class Game {
   constructor() {
     this.clock = new THREE.Clock();
 
-    // 1. Three.js Renderer con soporte WebXR para Meta Quest
+    // 1. WebGLRenderer optimizado para 72/90 FPS en Meta Quest (sin sombras pesadas ni sobrecoste)
     const container = document.getElementById('game-container')!;
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    this.renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      powerPreference: 'high-performance',
+      precision: 'mediump' // Precisión optimizada para GPUs móviles Adreno (Quest)
+    });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFShadowMap;
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.35;
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    // Desactivar mapas de sombras en tiempo real para evitar renderizar 2 veces por ojo a 2048px
+    this.renderer.shadowMap.enabled = false;
+    // LinearToneMapping es mucho más rápido que ACESFilmic en visores autónomos
+    this.renderer.toneMapping = THREE.LinearToneMapping;
+    this.renderer.toneMappingExposure = 1.25;
     this.renderer.xr.enabled = true;
     container.appendChild(this.renderer.domElement);
 
-    // 2. Escena y atmósfera de placa base (The Motherboard)
+    // 2. Escena
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x060f1c);
     this.scene.fog = new THREE.FogExp2(0x060f1c, 0.012);
 
-    // 3. Cámara principal
-    this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 150);
+    // 3. Cámara
+    this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 120);
 
     // 4. Instanciar subsistemas
     this.gameState = new GameState();
@@ -75,7 +80,7 @@ export class Game {
     this.arena = new Arena();
     this.scene.add(this.arena.group);
 
-    // 5. Sistema de entrada desacoplado (PC + WebXR)
+    // 5. Sistema de entrada
     this.desktopInput = new DesktopInput(this.renderer.domElement);
     this.inputManager = new InputManager(this.desktopInput);
 
@@ -110,10 +115,10 @@ export class Game {
       this.uiManager
     );
 
-    // 11. Botón WebXR para Meta Quest
+    // 11. Botón WebXR
     this.setupWebXRButton();
 
-    // 12. Enlazar eventos y callbacks
+    // 12. Enlazar eventos
     this.setupEventBindings();
 
     // 13. Valores iniciales
@@ -125,7 +130,6 @@ export class Game {
 
     window.addEventListener('resize', this.onWindowResize.bind(this));
 
-    // 14. Iniciar animación compatible con WebXR
     this.renderer.setAnimationLoop(this.animate.bind(this));
   }
 
@@ -134,7 +138,6 @@ export class Game {
     vrBtn.id = 'vr-button-meta';
     document.body.appendChild(vrBtn);
 
-    // Detectar soporte para actualizar el aviso en el menú
     if (navigator.xr) {
       navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
         const vrStatus = document.getElementById('vr-status');
@@ -149,14 +152,27 @@ export class Game {
       }).catch(() => {});
     }
 
-    // Eventos de sesión WebXR (inicio y fin)
     this.renderer.xr.addEventListener('sessionstart', () => {
       console.log('[VIRUS PURGE] WebXR immersive-vr session started!');
       this.isVRActive = true;
       this.audioManager.init();
       this.audioManager.playAlarm();
 
-      // Cambiar entrada a mandos físicos de VR
+      const session = this.renderer.xr.getSession();
+      if (session) {
+        // Solicitar tasa de refresco óptima a 72Hz o 90Hz para Meta Quest
+        const supportedRates = (session as unknown as { supportedFrameRates?: Float32Array }).supportedFrameRates;
+        const updateRate = (session as unknown as { updateTargetFrameRate?: (r: number) => Promise<void> }).updateTargetFrameRate;
+        if (supportedRates && updateRate) {
+          const rates = Array.from(supportedRates);
+          if (rates.includes(72)) {
+            updateRate.call(session, 72).catch(() => {});
+          } else if (rates.includes(90)) {
+            updateRate.call(session, 90).catch(() => {});
+          }
+        }
+      }
+
       this.inputManager.setSource(this.vrInput);
       this.player.setVRMode(true, this.vrInput);
       this.vrWristHUD.attachTo(this.vrInput.leftGrip);
@@ -171,7 +187,6 @@ export class Game {
       console.log('[VIRUS PURGE] WebXR session ended');
       this.isVRActive = false;
 
-      // Restaurar entrada de PC
       this.inputManager.setSource(this.desktopInput);
       this.player.setVRMode(false);
 
@@ -181,7 +196,6 @@ export class Game {
   }
 
   private setupEventBindings(): void {
-    // Click en botón desktop
     this.uiManager.onStartClicked = () => {
       this.audioManager.init();
 
@@ -197,7 +211,7 @@ export class Game {
     };
 
     this.desktopInput.onLockChange = (locked) => {
-      if (this.isVRActive) return; // En VR no se utiliza pointer lock
+      if (this.isVRActive) return;
 
       if (!locked && this.gameState.getState() === GameStateEnum.PLAYING) {
         this.gameState.setState(GameStateEnum.PAUSED);
@@ -208,7 +222,6 @@ export class Game {
       }
     };
 
-    // Eventos del arma
     const weapon = this.weaponManager.getActiveWeapon();
     weapon.onAmmoChange = (curr, max) => {
       this.uiManager.updateAmmo(curr, max);
@@ -222,12 +235,10 @@ export class Game {
       this.uiManager.showReloadIndicator(false);
     };
 
-    // Eventos de impacto
     this.damageSystem.onHitRegistered = (isHeadshot) => {
       this.uiManager.triggerHitmarker(isHeadshot);
     };
 
-    // Eventos de puntuación y HUD
     this.scoreManager.onScoreUpdate = (score) => {
       this.uiManager.updateScore(score);
       this.vrWristHUD.updateScore(score, this.scoreManager.getStats().combo);
@@ -240,14 +251,12 @@ export class Game {
       this.uiManager.showCombatAlert(text, type);
     };
 
-    // Daño hacia el jugador
     this.enemyManager.onPlayerDamaged = (amount) => {
       this.player.takeDamage(amount);
       this.audioManager.playPlayerHurt();
       this.uiManager.triggerDamageFlash();
     };
 
-    // Boss
     this.enemyManager.onBossHealthUpdate = (current, max) => {
       this.uiManager.showBossBar(true, 'RANSOMWARE.LOCKBIT.CORE // AMENAZA NIVEL 5');
       this.uiManager.updateBossHealth(current, max);
@@ -302,13 +311,11 @@ export class Game {
   private handlePlayerInput(): void {
     const weapon = this.weaponManager.getActiveWeapon();
 
-    // Disparo
     if (this.inputManager.consumeShootTriggered()) {
       if (weapon.canFire()) {
         weapon.fire();
         this.audioManager.playShot();
 
-        // En VR el rayo proviene exactamente de la mano derecha física
         const shootRay = this.player.getShootRay();
         this.damageSystem.processShot(shootRay.origin, shootRay.direction, weapon);
       } else if (weapon.currentAmmo === 0 && !weapon.isReloading) {
@@ -316,14 +323,14 @@ export class Game {
       }
     }
 
-    // Recarga
     if (this.inputManager.consumeReloadTriggered()) {
       weapon.reload();
     }
   }
 
   private animate(): void {
-    const delta = Math.min(this.clock.getDelta(), 0.1);
+    // Limitar delta a 0.05s para evitar picos de simulación física en VR
+    const delta = Math.min(this.clock.getDelta(), 0.05);
 
     if (this.gameState.getState() === GameStateEnum.PLAYING) {
       this.inputManager.update(delta);

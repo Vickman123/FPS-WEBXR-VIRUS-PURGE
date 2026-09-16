@@ -42,15 +42,8 @@ export class DamageSystem {
     this.raycaster.far = 100;
 
     const enemyHitboxes = this.enemyManager.getAllHitboxes();
-
-    const arenaMeshes: THREE.Object3D[] = [];
-    this.arena.group.traverse((child) => {
-      if ((child as THREE.Mesh).isMesh) {
-        arenaMeshes.push(child);
-      }
-    });
-
-    const potentialTargets = [...enemyHitboxes, ...arenaMeshes];
+    // Utilizar la caché optimizada de mallas de la arena
+    const potentialTargets = [...enemyHitboxes, ...this.arena.targetMeshes];
     const intersections = this.raycaster.intersectObjects(potentialTargets, false);
 
     if (intersections.length > 0) {
@@ -68,7 +61,6 @@ export class DamageSystem {
         let finalDamage = weapon.config.damage;
 
         if (isShield) {
-          // El escudo digital mitiga el 80% del daño
           finalDamage *= 0.2;
           this.audioManager.playShieldDeflect();
           this.particleSystem.emitImpactSparks(hitPoint, normal, false, false);
@@ -89,13 +81,13 @@ export class DamageSystem {
           this.onHitRegistered(isHeadshot, isShield);
         }
       } else {
-        // 2. Impacto contra la arena
+        // 2. Impacto contra cobertura / pared
         this.particleSystem.emitImpactSparks(hitPoint, normal, false, false);
         this.particleSystem.createBulletTracer(muzzlePos, hitPoint, false);
       }
     } else {
       // 3. Disparo al vacío
-      const distantPoint = origin.clone().add(direction.clone().multiplyScalar(60));
+      const distantPoint = origin.clone().add(direction.clone().multiplyScalar(50));
       this.particleSystem.createBulletTracer(muzzlePos, distantPoint, false);
     }
   }
