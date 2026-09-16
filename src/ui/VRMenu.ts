@@ -8,8 +8,10 @@ export interface VRMenuStats {
 
 export interface VRMenuCallbacks {
   onRespawn: () => void;
+  onResume: () => void;
   onTrainingRange: () => void;
   onStartSurvival: () => void;
+  onRestartSector: () => void;
   onMainMenu: () => void;
 }
 
@@ -28,12 +30,15 @@ export class VRMenu {
   private buttons: VRButton[] = [];
   private raycaster: THREE.Raycaster = new THREE.Raycaster();
   private isShowing: boolean = false;
-  private currentMode: 'GAME_OVER' | 'MAIN_MENU' = 'GAME_OVER';
+  private currentMode: 'GAME_OVER' | 'MAIN_MENU' | 'PAUSE' = 'GAME_OVER';
 
   private headerMesh: THREE.Mesh;
   private headerCanvas: HTMLCanvasElement;
   private headerCtx: CanvasRenderingContext2D;
   private headerTexture: THREE.CanvasTexture;
+
+  private bgMesh: THREE.Mesh;
+  private border: THREE.LineSegments;
 
   private callbacks: VRMenuCallbacks;
 
@@ -43,27 +48,27 @@ export class VRMenu {
     this.group.visible = false;
 
     // 1. Panel de fondo translúcido cyberpunk
-    const bgGeo = new THREE.PlaneGeometry(2.4, 1.7);
+    const bgGeo = new THREE.PlaneGeometry(2.4, 2.1);
     const bgMat = new THREE.MeshBasicMaterial({
       color: 0x030d1a,
       transparent: true,
-      opacity: 0.88,
+      opacity: 0.92,
       side: THREE.DoubleSide
     });
-    const bgMesh = new THREE.Mesh(bgGeo, bgMat);
-    bgMesh.position.z = -0.02;
-    this.group.add(bgMesh);
+    this.bgMesh = new THREE.Mesh(bgGeo, bgMat);
+    this.bgMesh.position.z = -0.02;
+    this.group.add(this.bgMesh);
 
     // Borde de neón exterior
     const borderGeo = new THREE.EdgesGeometry(bgGeo);
     const borderMat = new THREE.LineBasicMaterial({
       color: 0x00f3ff,
       transparent: true,
-      opacity: 0.8
+      opacity: 0.85
     });
-    const border = new THREE.LineSegments(borderGeo, borderMat);
-    border.position.z = -0.01;
-    this.group.add(border);
+    this.border = new THREE.LineSegments(borderGeo, borderMat);
+    this.border.position.z = -0.01;
+    this.group.add(this.border);
 
     // 2. Cabecera y estadísticas con Canvas dinámico
     this.headerCanvas = document.createElement('canvas');
@@ -75,10 +80,12 @@ export class VRMenu {
     const headerGeo = new THREE.PlaneGeometry(2.2, 0.77);
     const headerMat = new THREE.MeshBasicMaterial({
       map: this.headerTexture,
-      transparent: true
+      transparent: true,
+      side: THREE.DoubleSide,
+      depthWrite: false
     });
     this.headerMesh = new THREE.Mesh(headerGeo, headerMat);
-    this.headerMesh.position.set(0, 0.42, 0.01);
+    this.headerMesh.position.set(0, 0.58, 0.01);
     this.group.add(this.headerMesh);
   }
 
@@ -102,8 +109,8 @@ export class VRMenu {
     hoverColor: number,
     action: () => void
   ): void {
-    const width = 1.9;
-    const height = 0.24;
+    const width = 1.95;
+    const height = 0.22;
     const depth = 0.04;
 
     const geo = new THREE.BoxGeometry(width, height, depth);
@@ -124,35 +131,47 @@ export class VRMenu {
     const borderMat = new THREE.LineBasicMaterial({
       color: hoverColor,
       transparent: true,
-      opacity: 0.7
+      opacity: 0.85
     });
     const borderMesh = new THREE.LineSegments(borderEdges, borderMat);
     mesh.add(borderMesh);
 
-    // Texto del botón en Canvas
+    // Texto del botón en Canvas de alta resolución
     const canvas = document.createElement('canvas');
-    canvas.width = 512;
-    canvas.height = 64;
+    canvas.width = 1024;
+    canvas.height = 128;
     const ctx = canvas.getContext('2d')!;
-    ctx.fillStyle = 'rgba(0,0,0,0)';
-    ctx.fillRect(0, 0, 512, 64);
 
+    // Fondo del texto ligeramente translúcido
+    ctx.fillStyle = 'rgba(6, 20, 36, 0.85)';
+    ctx.fillRect(0, 0, 1024, 128);
+
+    // Borde interior
+    ctx.strokeStyle = hoverColor === 0x00ffff ? '#00f3ff' : '#ffaa00';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(6, 6, 1012, 116);
+
+    // Texto
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 28px "Courier New", monospace';
+    ctx.font = 'bold 50px "Courier New", monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.shadowColor = '#00f3ff';
-    ctx.shadowBlur = 8;
-    ctx.fillText(text, 256, 32);
+    ctx.shadowBlur = 10;
+    ctx.fillText(text, 512, 64);
 
     const texture = new THREE.CanvasTexture(canvas);
-    const labelGeo = new THREE.PlaneGeometry(width * 0.95, height * 0.85);
+    texture.needsUpdate = true;
+
+    const labelGeo = new THREE.PlaneGeometry(width * 0.96, height * 0.88);
     const labelMat = new THREE.MeshBasicMaterial({
       map: texture,
-      transparent: true
+      transparent: true,
+      side: THREE.DoubleSide,
+      depthWrite: false
     });
     const labelMesh = new THREE.Mesh(labelGeo, labelMat);
-    labelMesh.position.set(0, 0, depth / 2 + 0.005);
+    labelMesh.position.set(0, 0, depth / 2 + 0.012);
     mesh.add(labelMesh);
 
     this.group.add(mesh);
@@ -176,8 +195,8 @@ export class VRMenu {
     ctx.clearRect(0, 0, 1024, 360);
 
     const grad = ctx.createLinearGradient(0, 0, 0, 360);
-    grad.addColorStop(0, 'rgba(255, 0, 85, 0.25)');
-    grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    grad.addColorStop(0, 'rgba(255, 0, 85, 0.35)');
+    grad.addColorStop(1, 'rgba(0, 0, 0, 0.1)');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, 1024, 360);
 
@@ -203,20 +222,78 @@ export class VRMenu {
     ctx.shadowBlur = 0;
     ctx.fillText(`PRECISIÓN: ${stats.accuracy}%  |  SECTOR ALCANZADO: ${stats.wave}`, 512, 250);
 
-    ctx.fillStyle = 'rgba(0, 243, 255, 0.7)';
+    ctx.fillStyle = 'rgba(0, 243, 255, 0.85)';
     ctx.font = '22px "Courier New", monospace';
-    ctx.fillText('APUNTA CON TU PISTOLA Y DISPARA AL BOTÓN PARA SELECCIONAR', 512, 310);
+    ctx.fillText('APUNTA CON TU PISTOLA Y DISPARA AL BOTÓN', 512, 310);
 
     this.headerTexture.needsUpdate = true;
 
-    this.createButton('🔄 REAPARECER PROTOCOLO', -0.12, 0x00f3ff, 0x00ffff, () => {
+    this.createButton('🔄 REAPARECER PROTOCOLO', 0.05, 0x00f3ff, 0x00ffff, () => {
       this.hide();
       this.callbacks.onRespawn();
     });
 
-    this.createButton('🎯 CAMPO DE TIRO (PRÁCTICA)', -0.42, 0xffaa00, 0xffcc00, () => {
+    this.createButton('🎯 CAMPO DE TIRO (PRÁCTICA)', -0.25, 0xffaa00, 0xffcc00, () => {
       this.hide();
       this.callbacks.onTrainingRange();
+    });
+
+    this.createButton('🏠 MENÚ PRINCIPAL', -0.55, 0x64748b, 0x94a3b8, () => {
+      this.hide();
+      this.callbacks.onMainMenu();
+    });
+
+    this.positionInFrontOfCamera(camera);
+    this.group.visible = true;
+    this.isShowing = true;
+  }
+
+  public showPauseMenu(camera: THREE.Camera): void {
+    this.currentMode = 'PAUSE';
+    this.clearButtons();
+
+    const ctx = this.headerCtx;
+    ctx.clearRect(0, 0, 1024, 360);
+
+    const grad = ctx.createLinearGradient(0, 0, 0, 360);
+    grad.addColorStop(0, 'rgba(0, 243, 255, 0.3)');
+    grad.addColorStop(1, 'rgba(0, 0, 0, 0.1)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 1024, 360);
+
+    ctx.fillStyle = '#00f3ff';
+    ctx.font = 'bold 54px "Courier New", monospace';
+    ctx.textAlign = 'center';
+    ctx.shadowColor = '#00f3ff';
+    ctx.shadowBlur = 20;
+    ctx.fillText('⏸️ SISTEMA EN PAUSA', 512, 75);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '28px "Courier New", monospace';
+    ctx.shadowColor = '#00f3ff';
+    ctx.shadowBlur = 6;
+    ctx.fillText('SUB-RUTINA DE SEGURIDAD DETENIDA', 512, 135);
+
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '24px "Courier New", monospace';
+    ctx.shadowBlur = 0;
+    ctx.fillText('APUNTA Y DISPARA AL BOTÓN, O PULSA [X / Y] PARA REANUDAR', 512, 220);
+
+    this.headerTexture.needsUpdate = true;
+
+    this.createButton('▶️ REANUDAR PURGA', 0.12, 0x00f3ff, 0x00ffff, () => {
+      this.hide();
+      this.callbacks.onResume();
+    });
+
+    this.createButton('🎯 CAMPO DE TIRO (PRÁCTICA)', -0.16, 0xffaa00, 0xffcc00, () => {
+      this.hide();
+      this.callbacks.onTrainingRange();
+    });
+
+    this.createButton('🔄 REINICIAR SECTOR', -0.44, 0x38bdf8, 0x7dd3fc, () => {
+      this.hide();
+      this.callbacks.onRestartSector();
     });
 
     this.createButton('🏠 MENÚ PRINCIPAL', -0.72, 0x64748b, 0x94a3b8, () => {
@@ -255,12 +332,12 @@ export class VRMenu {
 
     this.headerTexture.needsUpdate = true;
 
-    this.createButton('⚔️ INICIAR PURGA (OLEADAS)', -0.15, 0x00f3ff, 0x00ffff, () => {
+    this.createButton('⚔️ INICIAR PURGA (OLEADAS)', -0.05, 0x00f3ff, 0x00ffff, () => {
       this.hide();
       this.callbacks.onStartSurvival();
     });
 
-    this.createButton('🎯 CAMPO DE TIRO (DIANAS)', -0.48, 0xffaa00, 0xffcc00, () => {
+    this.createButton('🎯 CAMPO DE TIRO (DIANAS)', -0.38, 0xffaa00, 0xffcc00, () => {
       this.hide();
       this.callbacks.onTrainingRange();
     });
@@ -279,6 +356,10 @@ export class VRMenu {
     return this.isShowing;
   }
 
+  public getMode(): 'GAME_OVER' | 'MAIN_MENU' | 'PAUSE' {
+    return this.currentMode;
+  }
+
   private positionInFrontOfCamera(camera: THREE.Camera): void {
     const forward = new THREE.Vector3();
     camera.getWorldDirection(forward);
@@ -292,11 +373,12 @@ export class VRMenu {
     const camPos = new THREE.Vector3();
     camera.getWorldPosition(camPos);
 
+    // Colocar el menú a 2.0 metros enfrente a nivel de los ojos
     this.group.position.copy(camPos).addScaledVector(forward, 2.0);
-    this.group.position.y = Math.max(1.2, camPos.y - 0.05);
+    this.group.position.y = Math.max(1.1, camPos.y - 0.05);
 
+    // En Three.js, lookAt orienta el vector hacia la cámara. No rotar 180 grados adicionales
     this.group.lookAt(camPos.x, this.group.position.y, camPos.z);
-    this.group.rotateY(Math.PI);
   }
 
   public update(rayOrigin: THREE.Vector3, rayDirection: THREE.Vector3, isTriggerJustPressed: boolean): boolean {
@@ -332,7 +414,7 @@ export class VRMenu {
       const mat = btn.mesh.material as THREE.MeshStandardMaterial;
       if (btn.isHovered) {
         mat.emissive.setHex(btn.hoverColor);
-        mat.emissiveIntensity = 1.6;
+        mat.emissiveIntensity = 1.8;
         btn.mesh.scale.set(1.04, 1.06, 1.2);
       } else {
         mat.emissive.setHex(btn.baseColor);

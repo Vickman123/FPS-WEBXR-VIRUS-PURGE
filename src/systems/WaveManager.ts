@@ -132,6 +132,14 @@ export class WaveManager {
     this.enemyManager.clearAll();
   }
 
+  public restartCurrentPhase(): void {
+    this.enemyManager.clearAll();
+    this.spawnQueue = [];
+    this.isIntermission = true;
+    this.intermissionTimer = 1.5;
+    this.preparePhase(this.currentPhaseIndex);
+  }
+
   private preparePhase(index: number): void {
     let config: PhaseConfig;
 

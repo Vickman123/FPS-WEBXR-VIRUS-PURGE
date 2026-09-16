@@ -23,6 +23,9 @@ export class VRInput implements IInputSource {
   private canSnapTurn: boolean = true;
   private snapTurnAngle: number = Math.PI / 6; // 30 grados por snap (mucho más cómodo que 45)
 
+  // Pestillo para botón de pausa del mando izquierdo (X / Y)
+  private canPause: boolean = true;
+
   public onRightControllerReady?: (controller: THREE.XRTargetRaySpace, grip: THREE.XRGripSpace) => void;
   public onLeftControllerReady?: (controller: THREE.XRTargetRaySpace, grip: THREE.XRGripSpace) => void;
 
@@ -105,13 +108,26 @@ export class VRInput implements IInputSource {
 
       if (source.handedness === 'left') {
         leftStick = stick;
-        // Botón Grip o botón X/Y para recargar
-        if (gp.buttons[1]?.pressed || gp.buttons[4]?.pressed || gp.buttons[5]?.pressed) {
+
+        // Botón Grip del mando izquierdo para recargar
+        if (gp.buttons[1]?.pressed) {
           this.reloadTriggered = true;
+        }
+
+        // Botones X (4) o Y (5) o clic de palanca (3) para PAUSAR con cerrojo
+        const isPausePressed = !!(gp.buttons[4]?.pressed || gp.buttons[5]?.pressed || gp.buttons[3]?.pressed);
+        if (isPausePressed) {
+          if (this.canPause) {
+            this.pauseTriggered = true;
+            this.canPause = false;
+            this.triggerHaptic(0.35, 35, 'left');
+          }
+        } else {
+          this.canPause = true;
         }
       } else if (source.handedness === 'right') {
         rightStick = stick;
-        // Botón Grip o botón A/B para recargar
+        // Botón Grip o botón A/B del mando derecho para recargar
         if (gp.buttons[1]?.pressed || gp.buttons[4]?.pressed || gp.buttons[5]?.pressed) {
           this.reloadTriggered = true;
         }

@@ -103,11 +103,13 @@ export class Game {
     });
     this.scene.add(this.targetRange.group);
 
-    // 9. Menú Holográfico 3D para VR (Game Over, Reaparecer y Selección)
+    // 9. Menú Holográfico 3D para VR (Game Over, Pausa, Reaparecer y Selección)
     this.vrMenu = new VRMenu({
       onRespawn: () => this.restartGame(),
+      onResume: () => this.resumeGame(),
       onTrainingRange: () => this.startTrainingRange(),
       onStartSurvival: () => this.startSurvivalMode(),
+      onRestartSector: () => this.restartSector(),
       onMainMenu: () => this.returnToMainMenu()
     });
     this.scene.add(this.vrMenu.group);
@@ -224,6 +226,8 @@ export class Game {
 
       if (this.gameState.getState() === GameStateEnum.GAME_OVER) {
         this.restartGame();
+      } else if (this.gameState.getState() === GameStateEnum.PAUSED) {
+        this.resumeGame();
       } else {
         this.startSurvivalMode();
       }
@@ -375,6 +379,57 @@ export class Game {
     }
   }
 
+  public togglePause(): void {
+    const currentState = this.gameState.getState();
+    if (currentState === GameStateEnum.PLAYING) {
+      this.pauseGame();
+    } else if (currentState === GameStateEnum.PAUSED) {
+      this.resumeGame();
+    }
+  }
+
+  public pauseGame(): void {
+    this.gameState.setState(GameStateEnum.PAUSED);
+    if (this.isVRActive) {
+      this.vrMenu.showPauseMenu(this.camera);
+    } else {
+      this.uiManager.showOverlay(true, 'DEPURACIÓN EN PAUSA', 'CONTINUAR');
+      if (document.pointerLockElement) {
+        document.exitPointerLock();
+      }
+    }
+  }
+
+  public resumeGame(): void {
+    this.vrMenu.hide();
+    this.gameState.setState(GameStateEnum.PLAYING);
+    this.uiManager.showOverlay(false);
+    if (!this.isVRActive) {
+      this.desktopInput.requestLock();
+    }
+  }
+
+  public restartSector(): void {
+    this.enemyManager.clearAll();
+    this.vrMenu.hide();
+    this.player.respawn();
+
+    const weapon = this.weaponManager.getActiveWeapon();
+    weapon.currentAmmo = weapon.config.magSize;
+    weapon.isReloading = false;
+    this.uiManager.updateAmmo(weapon.currentAmmo, weapon.config.magSize);
+    this.uiManager.updateHealth(this.player.health, this.player.maxHealth);
+    this.uiManager.resetVignette();
+    this.uiManager.showBossBar(false);
+    this.uiManager.showOverlay(false);
+
+    if (!this.isVRActive) {
+      this.desktopInput.requestLock();
+    }
+    this.gameState.setState(GameStateEnum.PLAYING);
+    this.waveManager.restartCurrentPhase();
+  }
+
   private restartGame(): void {
     this.enemyManager.clearAll();
     this.player.respawn();
@@ -399,6 +454,11 @@ export class Game {
   }
 
   private handlePlayerInput(): void {
+    if (this.inputManager.consumePauseTriggered()) {
+      this.togglePause();
+      return;
+    }
+
     const weapon = this.weaponManager.getActiveWeapon();
 
     if (this.inputManager.consumeShootTriggered()) {
@@ -455,9 +515,16 @@ export class Game {
       // 2. Estado GAME_OVER, MAIN_MENU o PAUSED
       this.particleSystem.update(delta);
 
-      // En VR, actualizar el raycast y gatillo contra el menú 3D para que nunca se trabe
+      // Si está en VR y el menú 3D está visible
       if (this.isVRActive && this.vrMenu.isVisible()) {
         this.inputManager.update(delta);
+
+        // Si se presiona el botón de pausa en el mando izquierdo mientras estamos en pausa, reanudar
+        if (this.inputManager.consumePauseTriggered() && this.gameState.getState() === GameStateEnum.PAUSED) {
+          this.resumeGame();
+          return;
+        }
+
         const shootTriggered = this.inputManager.consumeShootTriggered();
         const shootRay = this.player.getShootRay();
         this.vrMenu.update(shootRay.origin, shootRay.direction, shootTriggered);
