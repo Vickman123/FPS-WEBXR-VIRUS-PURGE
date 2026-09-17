@@ -23,17 +23,17 @@ export class WormSpreader extends Enemy {
     });
 
     this.model.position.copy(spawnPos);
-    this.baseHeight = 0.55;
+    this.baseHeight = 0.65;
     this.enemyType = 'worm';
 
     this.visualGroup = new THREE.Group();
     this.model.add(this.visualGroup);
 
-    // Instanciar modelo GLB optimizado
+    // Instanciar modelo GLB optimizado a escala imponente
     this.glbModel = ModelLoader.getWormModel();
 
     if (this.glbModel) {
-      this.glbModel.scale.set(0.75, 0.75, 0.75);
+      this.glbModel.scale.set(1.5, 1.5, 1.5);
       this.glbModel.position.set(0, 0, 0);
       this.visualGroup.add(this.glbModel);
 
@@ -45,8 +45,8 @@ export class WormSpreader extends Enemy {
       });
     } else {
       // Fallback
-      const fbGeo = new THREE.CylinderGeometry(0.2, 0.2, 1.4, 8);
-      const fbMat = new THREE.MeshStandardMaterial({ color: 0xc026d3, roughness: 0.3 });
+      const fbGeo = new THREE.CylinderGeometry(0.35, 0.35, 2.2, 8);
+      const fbMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.3 });
       const fbMesh = new THREE.Mesh(fbGeo, fbMat);
       fbMesh.rotation.x = Math.PI / 2;
       this.visualGroup.add(fbMesh);
@@ -54,18 +54,18 @@ export class WormSpreader extends Enemy {
 
     const hitMat = new THREE.MeshBasicMaterial({ visible: false });
 
-    // Hitbox del cuerpo alargado
-    const bodyHitGeo = new THREE.BoxGeometry(0.5, 0.6, 1.6);
+    // Hitbox del cuerpo alargado (calibrada a escala 1.5x)
+    const bodyHitGeo = new THREE.BoxGeometry(0.8, 0.9, 2.6);
     this.bodyHitbox = new THREE.Mesh(bodyHitGeo, hitMat);
-    this.bodyHitbox.position.set(0, 0.25, 0.2);
+    this.bodyHitbox.position.set(0, 0.35, 0.2);
     this.bodyHitbox.userData = { isHitbox: true, isHeadshot: false, enemy: this };
     this.model.add(this.bodyHitbox);
     this.hitboxes.push(this.bodyHitbox);
 
     // Hitbox de cabeza (Headshot crítico al frente)
-    const headHitGeo = new THREE.SphereGeometry(0.32, 8, 8);
+    const headHitGeo = new THREE.SphereGeometry(0.48, 8, 8);
     this.headHitbox = new THREE.Mesh(headHitGeo, hitMat);
-    this.headHitbox.position.set(0, 0.3, -0.7);
+    this.headHitbox.position.set(0, 0.45, -1.1);
     this.headHitbox.userData = { isHitbox: true, isHeadshot: true, enemy: this };
     this.model.add(this.headHitbox);
     this.hitboxes.push(this.headHitbox);
@@ -107,7 +107,7 @@ export class WormSpreader extends Enemy {
           this.glbModel.traverse((child) => {
             if ((child as THREE.Mesh).isMesh && (child as THREE.Mesh).material) {
               const m = (child as THREE.Mesh).material as THREE.MeshStandardMaterial;
-              if (m.emissive) m.emissive.setHex(0xd946ef);
+              if (m.emissive) m.emissive.setHex(0x000000);
             }
           });
         }

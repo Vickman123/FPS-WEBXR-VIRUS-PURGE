@@ -144,7 +144,7 @@ export class TrojanCarrier extends Enemy {
           this.glbModel.traverse((child) => {
             if ((child as THREE.Mesh).isMesh && (child as THREE.Mesh).material) {
               const m = (child as THREE.Mesh).material as THREE.MeshStandardMaterial;
-              if (m.emissive) m.emissive.setHex(0x10b981);
+              if (m.emissive) m.emissive.setHex(0x000000);
             }
           });
         }

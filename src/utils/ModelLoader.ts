@@ -24,21 +24,21 @@ export class ModelLoader {
     this.loadPromise = Promise.all([
       this.loadModel(dronePath).then((group) => {
         this.droneTemplate = group;
-        this.enhanceCyberMaterials(group, 0x00f3ff, 0.4);
+        this.setupCleanMaterials(group);
       }).catch((err) => console.warn('[ModelLoader] Falló carga de Drone.glb:', err)),
 
       this.loadModel(wormPath).then((group) => {
         this.wormTemplate = group;
-        this.enhanceCyberMaterials(group, 0xd946ef, 0.4);
+        this.setupCleanMaterials(group);
       }).catch((err) => console.warn('[ModelLoader] Falló carga de Worm.glb:', err)),
 
       this.loadModel(tankPath).then((group) => {
         this.tankTemplate = group;
-        this.enhanceCyberMaterials(group, 0x10b981, 0.35);
+        this.setupCleanMaterials(group);
       }).catch((err) => console.warn('[ModelLoader] Falló carga de Tank.glb:', err))
     ]).then(() => {
       this.isLoaded = true;
-      console.log('[ModelLoader] ¡Modelos 3D de malware cargados y optimizados con éxito!');
+      console.log('[ModelLoader] ¡Modelos 3D de malware cargados con texturas originales y fidelidad total!');
     });
 
     return this.loadPromise;
@@ -56,9 +56,10 @@ export class ModelLoader {
   }
 
   /**
-   * Mejora estética cyberpunk: sombras, metalicidad y sutil brillo de neón
+   * Mantiene las texturas y colores originales del modelo 3D intactos,
+   * sin tintes ni veladuras que cubran sus detalles reales.
    */
-  private static enhanceCyberMaterials(root: THREE.Object3D, accentColorHex: number, emissiveBoost: number = 0.3): void {
+  private static setupCleanMaterials(root: THREE.Object3D): void {
     root.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
         const mesh = child as THREE.Mesh;
@@ -69,12 +70,13 @@ export class ModelLoader {
           const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
           mats.forEach((m) => {
             if (m instanceof THREE.MeshStandardMaterial) {
-              m.roughness = Math.min(m.roughness, 0.45);
-              m.metalness = Math.max(m.metalness, 0.55);
-              // Tinte cibernético sutil en emissive para resaltar en la arena oscura
-              if (!m.emissive || m.emissive.getHex() === 0x000000) {
-                m.emissive = new THREE.Color(accentColorHex);
-                m.emissiveIntensity = emissiveBoost;
+              m.roughness = 0.5;
+              m.metalness = 0.2;
+              m.emissive = new THREE.Color(0x000000);
+              m.emissiveIntensity = 0;
+              if (m.map) {
+                m.map.colorSpace = THREE.SRGBColorSpace;
+                m.map.needsUpdate = true;
               }
             }
           });
