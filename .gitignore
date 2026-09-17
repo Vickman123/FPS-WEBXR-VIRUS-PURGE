@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Raw unoptimized 3D models in root (>100MB limit on GitHub)
+/*.glb

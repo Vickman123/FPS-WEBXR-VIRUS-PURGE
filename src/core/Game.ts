@@ -245,6 +245,7 @@ export class Game {
 
       this.gameState.setState(GameStateEnum.MAIN_MENU);
       this.uiManager.showOverlay(true);
+      this.audioManager.stopCombatMusic(600);
     });
   }
 
@@ -270,11 +271,9 @@ export class Game {
       if (this.isVRActive) return;
 
       if (!locked && this.gameState.getState() === GameStateEnum.PLAYING) {
-        this.gameState.setState(GameStateEnum.PAUSED);
-        this.uiManager.showOverlay(true, 'DEPURACIÓN EN PAUSA', 'CONTINUAR');
+        this.pauseGame();
       } else if (locked && this.gameState.getState() === GameStateEnum.PAUSED) {
-        this.gameState.setState(GameStateEnum.PLAYING);
-        this.uiManager.showOverlay(false);
+        this.resumeGame();
       }
     };
 
@@ -353,6 +352,7 @@ export class Game {
     this.player.onDeath = () => {
       this.gameState.setState(GameStateEnum.GAME_OVER);
       this.uiManager.showBossBar(false);
+      this.audioManager.stopCombatMusic(1500);
       const stats = this.scoreManager.getStats();
 
       if (this.isVRActive) {
@@ -419,6 +419,7 @@ export class Game {
     }
     this.gameState.setMode(GameMode.TRAINING);
     this.gameState.setState(GameStateEnum.PLAYING);
+    this.audioManager.startCombatMusic(0.12, 1800);
   }
 
   public returnToMainMenu(): void {
@@ -429,6 +430,7 @@ export class Game {
     this.vrStore.hide();
     this.uiManager.showStoreOverlay(false);
     this.gameState.setState(GameStateEnum.MAIN_MENU);
+    this.audioManager.stopCombatMusic(1000);
 
     if (this.isVRActive) {
       this.vrMenu.showMainMenu(this.camera);
@@ -438,6 +440,7 @@ export class Game {
   }
 
   public openStore(): void {
+    this.audioManager.duckMusic(0.04, 600);
     if (this.isVRActive) {
       this.vrStore.show(this.camera);
       this.audioManager.playStoreOpen();
@@ -453,6 +456,7 @@ export class Game {
   public continueAfterStore(): void {
     this.vrStore.hide();
     this.uiManager.showStoreOverlay(false);
+    this.audioManager.unduckMusic(1000);
     if (!this.isVRActive) {
       this.desktopInput.requestLock();
     }
@@ -470,6 +474,7 @@ export class Game {
 
   public pauseGame(): void {
     this.gameState.setState(GameStateEnum.PAUSED);
+    this.audioManager.duckMusic(0.04, 600);
     if (this.isVRActive) {
       this.vrMenu.showPauseMenu(this.camera);
     } else {
@@ -486,6 +491,7 @@ export class Game {
     this.gameState.setState(GameStateEnum.PLAYING);
     this.uiManager.showOverlay(false);
     this.uiManager.showStoreOverlay(false);
+    this.audioManager.unduckMusic(800);
     if (!this.isVRActive) {
       this.desktopInput.requestLock();
     }
@@ -513,6 +519,7 @@ export class Game {
     }
     this.gameState.setState(GameStateEnum.PLAYING);
     this.waveManager.restartCurrentPhase();
+    this.audioManager.startCombatMusic(0.16, 1500);
   }
 
   private restartGame(): void {
@@ -541,6 +548,7 @@ export class Game {
     this.uiManager.showOverlay(false);
     this.waveManager.reset();
     this.waveManager.start();
+    this.audioManager.startCombatMusic(0.16, 1800);
   }
 
   private handlePlayerInput(): void {

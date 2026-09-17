@@ -7,6 +7,12 @@ export class AudioManager {
   private masterGain: GainNode | null = null;
   private isMuted: boolean = false;
 
+  // Banda Sonora de Combate (BGM)
+  private bgmAudio: HTMLAudioElement | null = null;
+  private bgmTargetVolume: number = 0.16; // Nivel calibrado: nítido y con ritmo, pero no tapa los SFX ni cansa el oído
+  private fadeInterval: number | null = null;
+  private isBgmPlaying: boolean = false;
+
   constructor() {
   }
 
@@ -21,6 +27,7 @@ export class AudioManager {
     if (this.ctx.state === 'suspended') {
       this.ctx.resume();
     }
+    this.initBGM();
   }
 
   /**
@@ -484,5 +491,171 @@ export class AudioManager {
       data[i] = Math.random() * 2 - 1;
     }
     return buffer;
+  }
+
+  // ==========================================
+  // GESTIÓN DE MÚSICA DE FONDO (COMBAT BGM)
+  // ==========================================
+
+  private initBGM(): void {
+    if (this.bgmAudio) return;
+    try {
+      const meta = import.meta as unknown as { env?: { BASE_URL?: string } };
+      const baseUrl = meta.env?.BASE_URL || './';
+      const cleanBase = baseUrl.endsWith('/') ? baseUrl : baseUrl + '/';
+      const audioUrl = `${cleanBase}audio/combat_theme.mp3`;
+
+      this.bgmAudio = new Audio(audioUrl);
+      this.bgmAudio.loop = true;
+      this.bgmAudio.volume = 0;
+      this.bgmAudio.preload = 'auto';
+    } catch (e) {
+      console.warn('[AudioManager] No se pudo instanciar elemento de audio BGM:', e);
+    }
+  }
+
+  /**
+   * Inicia o continúa la música de combate con fade-in suave al entrar a partida
+   * @param targetVolume Volumen objetivo equilibrado (0.16 = ideal para escuchar disparos sin fatiga)
+   * @param fadeDurationMs Tiempo de entrada gradual en ms
+   */
+  public startCombatMusic(targetVolume: number = 0.16, fadeDurationMs: number = 1800): void {
+    this.init();
+    this.initBGM();
+    if (!this.bgmAudio || this.isMuted) return;
+
+    this.bgmTargetVolume = targetVolume;
+    this.isBgmPlaying = true;
+
+    if (this.bgmAudio.paused) {
+      this.bgmAudio.volume = 0;
+      const playPromise = this.bgmAudio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((err) => {
+          console.warn('[AudioManager] Esperando clic del usuario para reproducir BGM:', err);
+        });
+      }
+    }
+
+    this.fadeBgmTo(this.bgmTargetVolume, fadeDurationMs);
+  }
+
+  /**
+   * Reduce el volumen de la música (Audio Ducking) al pausar o al entrar al quiosco de mejoras
+   */
+  public duckMusic(duckVolume: number = 0.04, fadeDurationMs: number = 600): void {
+    if (!this.bgmAudio || this.bgmAudio.paused || !this.isBgmPlaying) return;
+    this.fadeBgmTo(duckVolume, fadeDurationMs);
+  }
+
+  /**
+   * Restaura el volumen de combate normal al reanudar la partida o cerrar la tienda
+   */
+  public unduckMusic(fadeDurationMs: number = 800): void {
+    if (!this.bgmAudio || this.bgmAudio.paused || !this.isBgmPlaying) return;
+    this.fadeBgmTo(this.bgmTargetVolume, fadeDurationMs);
+  }
+
+  /**
+   * Detiene la música suavemente con fade-out al morir (Game Over) o al regresar al menú principal
+   */
+  public stopCombatMusic(fadeDurationMs: number = 1200): void {
+    if (!this.bgmAudio || this.bgmAudio.paused) return;
+    this.isBgmPlaying = false;
+    this.fadeBgmTo(0, fadeDurationMs, () => {
+      if (this.bgmAudio && !this.isBgmPlaying) {
+        this.bgmAudio.pause();
+        this.bgmAudio.currentTime = 0;
+      }
+    });
+  }
+
+  /**
+   * Pausa la música sin reiniciar el tiempo
+   */
+  public pauseCombatMusic(fadeDurationMs: number = 600): void {
+    if (!this.bgmAudio || this.bgmAudio.paused) return;
+    this.fadeBgmTo(0, fadeDurationMs, () => {
+      if (this.bgmAudio) {
+        this.bgmAudio.pause();
+      }
+    });
+  }
+
+  public setCombatMusicVolume(vol: number): void {
+    this.bgmTargetVolume = Math.max(0, Math.min(1, vol));
+    if (this.bgmAudio && this.isBgmPlaying) {
+      this.bgmAudio.volume = this.bgmTargetVolume;
+    }
+  }
+
+  public getCombatMusicVolume(): number {
+    return this.bgmTargetVolume;
+  }
+
+  public toggleMute(): boolean {
+    this.isMuted = !this.isMuted;
+    if (this.masterGain && this.ctx) {
+      this.masterGain.gain.setValueAtTime(this.isMuted ? 0 : 0.35, this.ctx.currentTime);
+    }
+    if (this.bgmAudio) {
+      this.bgmAudio.muted = this.isMuted;
+    }
+    return this.isMuted;
+  }
+
+  public setMuted(muted: boolean): void {
+    this.isMuted = muted;
+    if (this.masterGain && this.ctx) {
+      this.masterGain.gain.setValueAtTime(this.isMuted ? 0 : 0.35, this.ctx.currentTime);
+    }
+    if (this.bgmAudio) {
+      this.bgmAudio.muted = this.isMuted;
+    }
+  }
+
+  public isSoundMuted(): boolean {
+    return this.isMuted;
+  }
+
+  private fadeBgmTo(targetVol: number, durationMs: number, onComplete?: () => void): void {
+    if (!this.bgmAudio) return;
+
+    if (this.fadeInterval !== null) {
+      clearInterval(this.fadeInterval);
+      this.fadeInterval = null;
+    }
+
+    const clampedTarget = Math.max(0, Math.min(1, targetVol));
+    const startVol = this.bgmAudio.volume;
+    const diff = clampedTarget - startVol;
+
+    if (Math.abs(diff) < 0.005 || durationMs <= 0) {
+      this.bgmAudio.volume = clampedTarget;
+      if (onComplete) onComplete();
+      return;
+    }
+
+    const steps = 20;
+    const stepTime = Math.max(16, durationMs / steps);
+    let step = 0;
+
+    this.fadeInterval = window.setInterval(() => {
+      step++;
+      const progress = step / steps;
+      if (this.bgmAudio) {
+        this.bgmAudio.volume = Math.max(0, Math.min(1, startVol + diff * progress));
+      }
+      if (step >= steps) {
+        if (this.fadeInterval !== null) {
+          clearInterval(this.fadeInterval);
+          this.fadeInterval = null;
+        }
+        if (this.bgmAudio) {
+          this.bgmAudio.volume = clampedTarget;
+        }
+        if (onComplete) onComplete();
+      }
+    }, stepTime);
   }
 }
