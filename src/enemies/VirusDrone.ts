@@ -1,19 +1,19 @@
 import * as THREE from 'three';
 import { Enemy, EnemyState } from './Enemy';
+import { ModelLoader } from '../utils/ModelLoader';
 
 export class VirusDrone extends Enemy {
-  private ringMesh1: THREE.Mesh;
-  private ringMesh2: THREE.Mesh;
-  private coreMesh: THREE.Mesh;
-  private headMesh: THREE.Mesh;
-  private bodyMesh: THREE.Mesh;
-
-  private normalCoreColor: number = 0xff0055;
-  private hurtFlashColor: number = 0xffffff;
+  private visualGroup: THREE.Group;
+  private glbModel: THREE.Group | null = null;
+  private headHitbox: THREE.Mesh;
+  private bodyHitbox: THREE.Mesh;
 
   private animTimer: number = 0;
   private baseHeight: number = 1.6;
-  private spawnGraceTimer: number = 1.5; // Tiempo antes de iniciar ataques
+  private spawnGraceTimer: number = 1.5;
+  private currentRoll: number = 0;
+  private currentPitch: number = 0;
+  private attackLunge: number = 0;
 
   constructor(spawnPos: THREE.Vector3) {
     super({
@@ -28,76 +28,49 @@ export class VirusDrone extends Enemy {
     this.model.position.copy(spawnPos);
     this.baseHeight = Math.max(1.5, spawnPos.y);
 
-    // 1. Materiales de alta luminosidad cibernética
-    const chassisMat = new THREE.MeshStandardMaterial({
-      color: 0x1e293b,
-      roughness: 0.3,
-      metalness: 0.8
-    });
+    // Contenedor para animaciones locales (pitch, roll, lunge, vibración)
+    this.visualGroup = new THREE.Group();
+    this.model.add(this.visualGroup);
 
-    const coreMat = new THREE.MeshStandardMaterial({
-      color: this.normalCoreColor,
-      emissive: this.normalCoreColor,
-      emissiveIntensity: 2.0,
-      roughness: 0.2
-    });
+    // Intentar instanciar el modelo 3D optimizado
+    this.glbModel = ModelLoader.getDroneModel();
 
-    const eyeMat = new THREE.MeshStandardMaterial({
-      color: 0xffaa00,
-      emissive: 0xffaa00,
-      emissiveIntensity: 3.0,
-      roughness: 0.1
-    });
+    if (this.glbModel) {
+      // Escalar y orientar el modelo personalizado
+      this.glbModel.scale.set(0.65, 0.65, 0.65);
+      this.glbModel.position.set(0, 0, 0);
+      this.visualGroup.add(this.glbModel);
 
-    const ringMat = new THREE.MeshBasicMaterial({
-      color: 0xff0055,
-      wireframe: true
-    });
-
-    // 2. Chasis del Cuerpo (Body)
-    const bodyGeo = new THREE.CylinderGeometry(0.45, 0.25, 0.55, 6);
-    this.bodyMesh = new THREE.Mesh(bodyGeo, chassisMat);
-    this.bodyMesh.castShadow = true;
-    this.model.add(this.bodyMesh);
-
-    this.bodyMesh.userData = { isHitbox: true, isHeadshot: false, enemy: this };
-    this.hitboxes.push(this.bodyMesh);
-
-    // 3. Núcleo corrupto interior resplandeciente
-    const coreGeo = new THREE.IcosahedronGeometry(0.3, 1);
-    this.coreMesh = new THREE.Mesh(coreGeo, coreMat);
-    this.model.add(this.coreMesh);
-
-    // 4. Anillos orbitales dobles
-    const ringGeo1 = new THREE.TorusGeometry(0.7, 0.025, 8, 28);
-    this.ringMesh1 = new THREE.Mesh(ringGeo1, ringMat);
-    this.ringMesh1.rotation.x = Math.PI / 3;
-    this.model.add(this.ringMesh1);
-
-    const ringGeo2 = new THREE.TorusGeometry(0.85, 0.02, 8, 28);
-    this.ringMesh2 = new THREE.Mesh(ringGeo2, ringMat);
-    this.ringMesh2.rotation.x = -Math.PI / 3;
-    this.model.add(this.ringMesh2);
-
-    // 5. Cabeza / Sensor óptico superior (Hitbox crítica de Headshot)
-    const headGeo = new THREE.SphereGeometry(0.24, 16, 16);
-    this.headMesh = new THREE.Mesh(headGeo, eyeMat);
-    this.headMesh.position.set(0, 0.55, 0);
-    this.headMesh.castShadow = true;
-    this.model.add(this.headMesh);
-
-    this.headMesh.userData = { isHitbox: true, isHeadshot: true, enemy: this };
-    this.hitboxes.push(this.headMesh);
-
-    // 6. 3 propulsores con espinas
-    for (let i = 0; i < 3; i++) {
-      const angle = (i * Math.PI * 2) / 3;
-      const legGeo = new THREE.ConeGeometry(0.08, 0.35, 4);
-      const leg = new THREE.Mesh(legGeo, chassisMat);
-      leg.position.set(Math.cos(angle) * 0.35, -0.38, Math.sin(angle) * 0.35);
-      leg.rotation.x = Math.PI;
-      this.model.add(leg);
+      // Etiquetar todas las mallas internas para colisión
+      this.glbModel.traverse((child) => {
+        if ((child as THREE.Mesh).isMesh) {
+          child.userData = { isHitbox: true, isHeadshot: false, enemy: this };
+          this.hitboxes.push(child as THREE.Mesh);
+        }
+      });
+    } else {
+      // Geometría fallback si el modelo aún estuviese cargando
+      const fallbackGeo = new THREE.CylinderGeometry(0.45, 0.25, 0.55, 6);
+      const fallbackMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.3, metalness: 0.8 });
+      const fbMesh = new THREE.Mesh(fallbackGeo, fallbackMat);
+      this.visualGroup.add(fbMesh);
     }
+
+    // Hitbox principal del cuerpo (invisible para raycasting preciso)
+    const bodyHitGeo = new THREE.CylinderGeometry(0.55, 0.45, 0.8, 8);
+    const hitMat = new THREE.MeshBasicMaterial({ visible: false });
+    this.bodyHitbox = new THREE.Mesh(bodyHitGeo, hitMat);
+    this.bodyHitbox.userData = { isHitbox: true, isHeadshot: false, enemy: this };
+    this.model.add(this.bodyHitbox);
+    this.hitboxes.push(this.bodyHitbox);
+
+    // Hitbox crítica de cabeza / sensor superior (Headshot)
+    const headHitGeo = new THREE.SphereGeometry(0.32, 8, 8);
+    this.headHitbox = new THREE.Mesh(headHitGeo, hitMat);
+    this.headHitbox.position.set(0, 0.45, 0);
+    this.headHitbox.userData = { isHitbox: true, isHeadshot: true, enemy: this };
+    this.model.add(this.headHitbox);
+    this.hitboxes.push(this.headHitbox);
   }
 
   public override update(delta: number, playerPosition: THREE.Vector3): void {
@@ -109,34 +82,19 @@ export class VirusDrone extends Enemy {
       this.spawnGraceTimer -= delta;
     }
 
-    // Rotación de anillos en direcciones opuestas
-    this.ringMesh1.rotation.z += delta * 2.2;
-    this.ringMesh1.rotation.y += delta * 1.5;
-    this.ringMesh2.rotation.z -= delta * 1.8;
-    this.ringMesh2.rotation.x += delta * 1.2;
-
-    // Flotación / levitación a nivel de ojos
-    const hoverOffset = Math.sin(this.animTimer * 3.0) * 0.15;
-    this.model.position.y = this.baseHeight + hoverOffset;
-
-    // Destello de daño
-    if (this.hurtTimer > 0) {
-      this.hurtTimer -= delta;
-      (this.coreMesh.material as THREE.MeshStandardMaterial).emissive.setHex(this.hurtFlashColor);
-      (this.headMesh.material as THREE.MeshStandardMaterial).emissive.setHex(this.hurtFlashColor);
-      if (this.hurtTimer <= 0) {
-        (this.coreMesh.material as THREE.MeshStandardMaterial).emissive.setHex(this.normalCoreColor);
-        (this.headMesh.material as THREE.MeshStandardMaterial).emissive.setHex(0xffaa00);
-        if (this.state === EnemyState.HURT) {
-          this.state = EnemyState.CHASE;
-        }
-      }
-    }
-
     if (this.attackTimer > 0) {
       this.attackTimer -= delta;
     }
 
+    // 1. Flotación vertical viva (Hover Bobbing)
+    const hoverOffset = Math.sin(this.animTimer * 3.5) * 0.12;
+    this.model.position.y = this.baseHeight + hoverOffset;
+
+    // 2. Microvibración de propulsores iónicos / turbinas
+    const turbineVibration = Math.sin(this.animTimer * 30.0) * 0.012;
+    this.visualGroup.position.y = turbineVibration;
+
+    // 3. Orientación y dirección hacia el jugador
     const dirToPlayer = new THREE.Vector3(
       playerPosition.x - this.model.position.x,
       0,
@@ -145,13 +103,66 @@ export class VirusDrone extends Enemy {
     const distanceToPlayer = dirToPlayer.length();
 
     if (distanceToPlayer > 0.1) {
+      const prevYaw = this.model.rotation.y;
       this.model.lookAt(playerPosition.x, this.model.position.y, playerPosition.z);
+      const targetYaw = this.model.rotation.y;
+
+      // Calcular giro angular para inclinar el dron en las curvas (Banking / Roll)
+      let yawDiff = targetYaw - prevYaw;
+      if (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
+      if (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
+
+      const targetRoll = THREE.MathUtils.clamp(-yawDiff * 8.0, -0.35, 0.35);
+      this.currentRoll = THREE.MathUtils.lerp(this.currentRoll, targetRoll, delta * 6.0);
+    }
+
+    // 4. Inclinación hacia adelante al avanzar (Pitch)
+    const isMoving = this.spawnGraceTimer <= 0 && distanceToPlayer > this.config.attackRange;
+    const targetPitch = isMoving ? 0.20 : 0.0;
+    this.currentPitch = THREE.MathUtils.lerp(this.currentPitch, targetPitch, delta * 4.0);
+
+    // 5. Animación de embestida de ataque (Attack Lunge)
+    if (this.attackLunge > 0) {
+      this.attackLunge -= delta * 3.0;
+    }
+    const lungeOffset = Math.sin(Math.max(0, this.attackLunge) * Math.PI) * 0.35;
+
+    // Aplicar transformaciones procedimentales al contenedor visual
+    this.visualGroup.rotation.x = this.currentPitch;
+    this.visualGroup.rotation.z = this.currentRoll;
+    this.visualGroup.position.z = lungeOffset;
+
+    // 6. Destello de daño al recibir impactos
+    if (this.hurtTimer > 0) {
+      this.hurtTimer -= delta;
+      if (this.glbModel) {
+        this.glbModel.traverse((child) => {
+          if ((child as THREE.Mesh).isMesh && (child as THREE.Mesh).material) {
+            const m = (child as THREE.Mesh).material as THREE.MeshStandardMaterial;
+            if (m.emissive) m.emissive.setHex(0xffffff);
+          }
+        });
+      }
+      if (this.hurtTimer <= 0) {
+        if (this.glbModel) {
+          this.glbModel.traverse((child) => {
+            if ((child as THREE.Mesh).isMesh && (child as THREE.Mesh).material) {
+              const m = (child as THREE.Mesh).material as THREE.MeshStandardMaterial;
+              if (m.emissive) m.emissive.setHex(0x00f3ff);
+            }
+          });
+        }
+        if (this.state === EnemyState.HURT) {
+          this.state = EnemyState.CHASE;
+        }
+      }
     }
 
     if (this.spawnGraceTimer > 0) {
-      return; // Esperar gracia de aparición
+      return;
     }
 
+    // 7. Lógica de persecución y ataque
     if (distanceToPlayer > this.config.attackRange) {
       this.state = EnemyState.CHASE;
       dirToPlayer.normalize();
@@ -162,6 +173,7 @@ export class VirusDrone extends Enemy {
       this.state = EnemyState.ATTACK;
       if (this.attackTimer <= 0) {
         this.attackTimer = this.config.attackCooldown;
+        this.attackLunge = 1.0; // Dispara animación de embestida hacia adelante
         if (this.onAttackPlayer) {
           this.onAttackPlayer(this.config.damage);
         }

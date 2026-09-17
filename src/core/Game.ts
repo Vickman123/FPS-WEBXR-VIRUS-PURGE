@@ -21,6 +21,7 @@ import { TargetRange } from '../world/TargetRange';
 import { CurrencyManager } from '../systems/CurrencyManager';
 import { UpgradeManager } from '../systems/UpgradeManager';
 import { BitDropManager } from '../systems/BitDropManager';
+import { ModelLoader } from '../utils/ModelLoader';
 
 export class Game {
   public renderer: THREE.WebGLRenderer;
@@ -88,6 +89,9 @@ export class Game {
     this.uiManager = new UIManager();
     this.particleSystem = new ParticleSystem();
     this.scene.add(this.particleSystem.group);
+
+    // Precarga asíncrona de modelos 3D optimizados
+    ModelLoader.init();
 
     this.arena = new Arena();
     this.scene.add(this.arena.group);

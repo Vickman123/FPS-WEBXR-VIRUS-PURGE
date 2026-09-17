@@ -314,21 +314,27 @@ export class VRMenu {
     ctx.clearRect(0, 0, 1024, 360);
 
     ctx.fillStyle = '#00f3ff';
-    ctx.font = 'bold 56px "Courier New", monospace';
+    ctx.font = 'bold 52px "Courier New", monospace';
     ctx.textAlign = 'center';
     ctx.shadowColor = '#00f3ff';
     ctx.shadowBlur = 20;
-    ctx.fillText('VIRUS PURGE // VR DEFENSE', 512, 85);
+    ctx.fillText('VIRUS PURGE // VR DEFENSE', 512, 70);
+
+    ctx.fillStyle = '#00f3ff';
+    ctx.font = 'bold 24px "Courier New", monospace';
+    ctx.shadowColor = '#00f3ff';
+    ctx.shadowBlur = 8;
+    ctx.fillText('⚡ DESARROLLADO POR VÍCTOR CARREÑO ⚡', 512, 118);
 
     ctx.fillStyle = '#38bdf8';
-    ctx.font = '28px "Courier New", monospace';
-    ctx.shadowBlur = 8;
-    ctx.fillText('SUB-RUTINA DE SEGURIDAD DEL SISTEMA CENTRAL', 512, 145);
+    ctx.font = '24px "Courier New", monospace';
+    ctx.shadowBlur = 4;
+    ctx.fillText('SUB-RUTINA DE SEGURIDAD DEL SISTEMA CENTRAL', 512, 165);
 
     ctx.fillStyle = '#94a3b8';
-    ctx.font = '24px "Courier New", monospace';
+    ctx.font = '22px "Courier New", monospace';
     ctx.shadowBlur = 0;
-    ctx.fillText('SELECCIONA MODO DE COMBATE DISPARANDO AL OBJETIVO', 512, 220);
+    ctx.fillText('SELECCIONA MODO DE COMBATE DISPARANDO AL OBJETIVO', 512, 230);
 
     this.headerTexture.needsUpdate = true;
 

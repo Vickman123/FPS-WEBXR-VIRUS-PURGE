@@ -1,11 +1,17 @@
 import * as THREE from 'three';
 import { Enemy, EnemyState } from './Enemy';
+import { ModelLoader } from '../utils/ModelLoader';
 
 export class TrojanCarrier extends Enemy {
+  private visualGroup: THREE.Group;
+  private glbModel: THREE.Group | null = null;
   private shieldMesh: THREE.Mesh;
-  private coreMesh: THREE.Mesh;
-  private bodyMesh: THREE.Mesh;
+  private shieldWire: THREE.Mesh;
+  private coreHitbox: THREE.Mesh;
+  private bodyHitbox: THREE.Mesh;
+
   private animTimer: number = 0;
+  private currentRockPitch: number = 0;
 
   constructor(spawnPos: THREE.Vector3) {
     super({
@@ -13,78 +19,79 @@ export class TrojanCarrier extends Enemy {
       maxHealth: 180,
       speed: 1.6,
       damage: 18,
-      attackRange: 2.2,
+      attackRange: 2.4,
       attackCooldown: 1.6
     });
 
     this.model.position.copy(spawnPos);
+    this.model.position.y = 0.6;
     this.enemyType = 'trojan';
 
-    // Materiales
-    const armorMat = new THREE.MeshStandardMaterial({
-      color: 0x1e293b,
-      roughness: 0.35,
-      metalness: 0.85
-    });
+    this.visualGroup = new THREE.Group();
+    this.model.add(this.visualGroup);
 
-    const malwareCoreMat = new THREE.MeshStandardMaterial({
-      color: 0x10b981,
-      emissive: 0x10b981,
-      emissiveIntensity: 2.5,
-      roughness: 0.2
-    });
+    // Instanciar modelo GLB del tanque
+    this.glbModel = ModelLoader.getTankModel();
 
+    if (this.glbModel) {
+      this.glbModel.scale.set(1.05, 1.05, 1.05);
+      this.glbModel.position.set(0, 0, 0);
+      this.visualGroup.add(this.glbModel);
+
+      this.glbModel.traverse((child) => {
+        if ((child as THREE.Mesh).isMesh) {
+          child.userData = { isHitbox: true, isHeadshot: false, isShield: false, enemy: this };
+          this.hitboxes.push(child as THREE.Mesh);
+        }
+      });
+    } else {
+      // Fallback
+      const fbGeo = new THREE.BoxGeometry(1.4, 1.0, 1.4);
+      const fbMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.35, metalness: 0.85 });
+      const fbMesh = new THREE.Mesh(fbGeo, fbMat);
+      this.visualGroup.add(fbMesh);
+    }
+
+    const hitMat = new THREE.MeshBasicMaterial({ visible: false });
+
+    // Hitbox del chasis blindado
+    const bodyHitGeo = new THREE.BoxGeometry(1.6, 1.2, 1.6);
+    this.bodyHitbox = new THREE.Mesh(bodyHitGeo, hitMat);
+    this.bodyHitbox.position.set(0, 0.2, 0);
+    this.bodyHitbox.userData = { isHitbox: true, isHeadshot: false, isShield: false, enemy: this };
+    this.model.add(this.bodyHitbox);
+    this.hitboxes.push(this.bodyHitbox);
+
+    // Escudo frontal digital ("svchost.exe / Firewall Shield")
+    const shieldGeo = new THREE.PlaneGeometry(1.8, 1.5);
     const shieldMat = new THREE.MeshBasicMaterial({
       color: 0x38bdf8,
       transparent: true,
       opacity: 0.55,
       side: THREE.DoubleSide
     });
+    this.shieldMesh = new THREE.Mesh(shieldGeo, shieldMat);
+    this.shieldMesh.position.set(0, 0.4, -0.95);
+    this.visualGroup.add(this.shieldMesh);
 
     const hexWireMat = new THREE.MeshBasicMaterial({
       color: 0x0284c7,
       wireframe: true
     });
+    this.shieldWire = new THREE.Mesh(shieldGeo, hexWireMat);
+    this.shieldWire.position.set(0, 0.4, -0.96);
+    this.visualGroup.add(this.shieldWire);
 
-    // 1. Chasis pesado
-    const bodyGeo = new THREE.BoxGeometry(1.1, 1.2, 0.9);
-    this.bodyMesh = new THREE.Mesh(bodyGeo, armorMat);
-    this.bodyMesh.position.set(0, 0.8, 0);
-    this.bodyMesh.castShadow = true;
-    this.model.add(this.bodyMesh);
-
-    this.bodyMesh.userData = { isHitbox: true, isHeadshot: false, isShield: false, enemy: this };
-    this.hitboxes.push(this.bodyMesh);
-
-    // 2. Escudo frontal digital ("svchost.exe / Armor")
-    const shieldGeo = new THREE.PlaneGeometry(1.4, 1.5);
-    this.shieldMesh = new THREE.Mesh(shieldGeo, shieldMat);
-    this.shieldMesh.position.set(0, 0.8, -0.55);
-    this.model.add(this.shieldMesh);
-
-    const shieldWire = new THREE.Mesh(shieldGeo, hexWireMat);
-    shieldWire.position.set(0, 0.8, -0.56);
-    this.model.add(shieldWire);
-
-    // Hitbox del escudo (mitiga 80% de daño)
     this.shieldMesh.userData = { isHitbox: true, isHeadshot: false, isShield: true, enemy: this };
     this.hitboxes.push(this.shieldMesh);
 
-    // 3. Núcleo vulnerable trasero/superior (Headshot / Critical Spot)
-    const coreGeo = new THREE.IcosahedronGeometry(0.3, 1);
-    this.coreMesh = new THREE.Mesh(coreGeo, malwareCoreMat);
-    this.coreMesh.position.set(0, 1.1, 0.45); // Expuesto en la parte trasera
-    this.model.add(this.coreMesh);
-
-    this.coreMesh.userData = { isHitbox: true, isHeadshot: true, isShield: false, enemy: this };
-    this.hitboxes.push(this.coreMesh);
-
-    // 4. Faro de alerta de proceso falso en la parte superior
-    const beaconGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.25, 8);
-    const beaconMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
-    const beacon = new THREE.Mesh(beaconGeo, beaconMat);
-    beacon.position.set(0, 1.5, 0);
-    this.model.add(beacon);
+    // Núcleo vulnerable trasero expuesto (Headshot crítico)
+    const coreHitGeo = new THREE.SphereGeometry(0.4, 8, 8);
+    this.coreHitbox = new THREE.Mesh(coreHitGeo, hitMat);
+    this.coreHitbox.position.set(0, 0.6, 0.75); // Expuesto en la parte posterior
+    this.coreHitbox.userData = { isHitbox: true, isHeadshot: true, isShield: false, enemy: this };
+    this.model.add(this.coreHitbox);
+    this.hitboxes.push(this.coreHitbox);
   }
 
   public override update(delta: number, playerPosition: THREE.Vector3): void {
@@ -92,25 +99,9 @@ export class TrojanCarrier extends Enemy {
 
     this.animTimer += delta;
 
-    // Pulso del núcleo y escudo
-    const pulse = 0.5 + Math.sin(this.animTimer * 4) * 0.25;
+    // 1. Pulso holográfico del escudo frontal
+    const pulse = 0.5 + Math.sin(this.animTimer * 4.0) * 0.25;
     (this.shieldMesh.material as THREE.MeshBasicMaterial).opacity = 0.45 + pulse * 0.2;
-
-    // Destello de daño
-    if (this.hurtTimer > 0) {
-      this.hurtTimer -= delta;
-      (this.coreMesh.material as THREE.MeshStandardMaterial).emissive.setHex(0xffffff);
-      if (this.hurtTimer <= 0) {
-        (this.coreMesh.material as THREE.MeshStandardMaterial).emissive.setHex(0x10b981);
-        if (this.state === EnemyState.HURT) {
-          this.state = EnemyState.CHASE;
-        }
-      }
-    }
-
-    if (this.attackTimer > 0) {
-      this.attackTimer -= delta;
-    }
 
     const dirToPlayer = new THREE.Vector3(
       playerPosition.x - this.model.position.x,
@@ -123,7 +114,52 @@ export class TrojanCarrier extends Enemy {
       this.model.lookAt(playerPosition.x, this.model.position.y, playerPosition.z);
     }
 
-    if (distanceToPlayer > this.config.attackRange) {
+    const isMoving = distanceToPlayer > this.config.attackRange;
+
+    // 2. Animación de retumbar de orugas (Tread rumble) y balanceo de suspensión pesada
+    if (isMoving) {
+      const treadVibration = Math.sin(this.animTimer * 24.0) * 0.012;
+      const suspensionRock = Math.sin(this.animTimer * 4.0) * 0.04;
+      this.visualGroup.position.y = treadVibration;
+      this.currentRockPitch = THREE.MathUtils.lerp(this.currentRockPitch, suspensionRock + 0.03, delta * 5.0);
+    } else {
+      this.currentRockPitch = THREE.MathUtils.lerp(this.currentRockPitch, 0, delta * 4.0);
+      this.visualGroup.position.y = Math.sin(this.animTimer * 3.0) * 0.005; // Ralentí del motor
+    }
+    this.visualGroup.rotation.x = this.currentRockPitch;
+
+    // 3. Destello de daño
+    if (this.hurtTimer > 0) {
+      this.hurtTimer -= delta;
+      if (this.glbModel) {
+        this.glbModel.traverse((child) => {
+          if ((child as THREE.Mesh).isMesh && (child as THREE.Mesh).material) {
+            const m = (child as THREE.Mesh).material as THREE.MeshStandardMaterial;
+            if (m.emissive) m.emissive.setHex(0xffffff);
+          }
+        });
+      }
+      if (this.hurtTimer <= 0) {
+        if (this.glbModel) {
+          this.glbModel.traverse((child) => {
+            if ((child as THREE.Mesh).isMesh && (child as THREE.Mesh).material) {
+              const m = (child as THREE.Mesh).material as THREE.MeshStandardMaterial;
+              if (m.emissive) m.emissive.setHex(0x10b981);
+            }
+          });
+        }
+        if (this.state === EnemyState.HURT) {
+          this.state = EnemyState.CHASE;
+        }
+      }
+    }
+
+    if (this.attackTimer > 0) {
+      this.attackTimer -= delta;
+    }
+
+    // 4. Lógica de avance del tanque
+    if (isMoving) {
       this.state = EnemyState.CHASE;
       dirToPlayer.normalize();
 

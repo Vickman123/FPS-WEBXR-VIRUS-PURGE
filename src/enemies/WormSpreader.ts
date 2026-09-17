@@ -1,12 +1,16 @@
 import * as THREE from 'three';
 import { Enemy, EnemyState } from './Enemy';
+import { ModelLoader } from '../utils/ModelLoader';
 
 export class WormSpreader extends Enemy {
-  private bodyNodes: THREE.Mesh[] = [];
-  private headMesh: THREE.Mesh;
+  private visualGroup: THREE.Group;
+  private glbModel: THREE.Group | null = null;
+  private headHitbox: THREE.Mesh;
+  private bodyHitbox: THREE.Mesh;
+
   private animTimer: number = 0;
   private wavePhase: number = Math.random() * Math.PI * 2;
-  private baseHeight: number = 0.85;
+  private baseHeight: number = 0.55;
 
   constructor(spawnPos: THREE.Vector3) {
     super({
@@ -19,84 +23,94 @@ export class WormSpreader extends Enemy {
     });
 
     this.model.position.copy(spawnPos);
-    this.baseHeight = 0.85;
+    this.baseHeight = 0.55;
     this.enemyType = 'worm';
 
-    // Materiales: fucsia / violeta neón para el gusano de datos
-    const nodeMat = new THREE.MeshStandardMaterial({
-      color: 0xc026d3,
-      emissive: 0xa21caf,
-      emissiveIntensity: 2.2,
-      roughness: 0.25,
-      metalness: 0.6
-    });
+    this.visualGroup = new THREE.Group();
+    this.model.add(this.visualGroup);
 
-    const headMat = new THREE.MeshStandardMaterial({
-      color: 0xff007f,
-      emissive: 0xff007f,
-      emissiveIntensity: 3.0,
-      roughness: 0.1
-    });
+    // Instanciar modelo GLB optimizado
+    this.glbModel = ModelLoader.getWormModel();
 
-    const jointMat = new THREE.MeshBasicMaterial({
-      color: 0xf472b6,
-      wireframe: true
-    });
+    if (this.glbModel) {
+      this.glbModel.scale.set(0.75, 0.75, 0.75);
+      this.glbModel.position.set(0, 0, 0);
+      this.visualGroup.add(this.glbModel);
 
-    // 1. Cabeza (Vulnerable a disparos críticos)
-    const headGeo = new THREE.SphereGeometry(0.26, 16, 16);
-    this.headMesh = new THREE.Mesh(headGeo, headMat);
-    this.headMesh.position.set(0, 0, 0);
-    this.headMesh.castShadow = true;
-    this.model.add(this.headMesh);
-
-    this.headMesh.userData = { isHitbox: true, isHeadshot: true, enemy: this };
-    this.hitboxes.push(this.headMesh);
-
-    // 2. Nodos del cuerpo segmentado (4 segmentos que siguen en serpenteo)
-    const nodeCount = 4;
-    for (let i = 0; i < nodeCount; i++) {
-      const scale = 1 - (i * 0.14);
-      const geo = new THREE.SphereGeometry(0.22 * scale, 12, 12);
-      const node = new THREE.Mesh(geo, nodeMat);
-      node.position.set(0, 0, (i + 1) * 0.35);
-      node.castShadow = true;
-      this.model.add(node);
-      this.bodyNodes.push(node);
-
-      // Anillo de datos entre segmentos
-      const ringGeo = new THREE.TorusGeometry(0.24 * scale, 0.02, 6, 16);
-      const ring = new THREE.Mesh(ringGeo, jointMat);
-      ring.position.set(0, 0, (i + 0.5) * 0.35);
-      this.model.add(ring);
-
-      node.userData = { isHitbox: true, isHeadshot: false, enemy: this };
-      this.hitboxes.push(node);
+      this.glbModel.traverse((child) => {
+        if ((child as THREE.Mesh).isMesh) {
+          child.userData = { isHitbox: true, isHeadshot: false, enemy: this };
+          this.hitboxes.push(child as THREE.Mesh);
+        }
+      });
+    } else {
+      // Fallback
+      const fbGeo = new THREE.CylinderGeometry(0.2, 0.2, 1.4, 8);
+      const fbMat = new THREE.MeshStandardMaterial({ color: 0xc026d3, roughness: 0.3 });
+      const fbMesh = new THREE.Mesh(fbGeo, fbMat);
+      fbMesh.rotation.x = Math.PI / 2;
+      this.visualGroup.add(fbMesh);
     }
+
+    const hitMat = new THREE.MeshBasicMaterial({ visible: false });
+
+    // Hitbox del cuerpo alargado
+    const bodyHitGeo = new THREE.BoxGeometry(0.5, 0.6, 1.6);
+    this.bodyHitbox = new THREE.Mesh(bodyHitGeo, hitMat);
+    this.bodyHitbox.position.set(0, 0.25, 0.2);
+    this.bodyHitbox.userData = { isHitbox: true, isHeadshot: false, enemy: this };
+    this.model.add(this.bodyHitbox);
+    this.hitboxes.push(this.bodyHitbox);
+
+    // Hitbox de cabeza (Headshot crítico al frente)
+    const headHitGeo = new THREE.SphereGeometry(0.32, 8, 8);
+    this.headHitbox = new THREE.Mesh(headHitGeo, hitMat);
+    this.headHitbox.position.set(0, 0.3, -0.7);
+    this.headHitbox.userData = { isHitbox: true, isHeadshot: true, enemy: this };
+    this.model.add(this.headHitbox);
+    this.hitboxes.push(this.headHitbox);
   }
 
   public override update(delta: number, playerPosition: THREE.Vector3): void {
     if (this.isDead) return;
 
     this.animTimer += delta;
-    this.wavePhase += delta * 8.0;
+    this.wavePhase += delta * 9.0;
 
-    // Movimiento ondulatorio de los segmentos del cuerpo
-    this.bodyNodes.forEach((node, idx) => {
-      const wave = Math.sin(this.wavePhase - idx * 0.8) * 0.15;
-      node.position.x = wave;
-      node.position.y = Math.cos(this.wavePhase - idx * 0.6) * 0.08;
-    });
+    // 1. Animación procedimental de serpenteo (Slither S-Curve)
+    const slitherYaw = Math.sin(this.wavePhase) * 0.26;
+    const slitherRoll = Math.cos(this.wavePhase) * 0.12;
+    const lateralSway = Math.sin(this.wavePhase) * 0.14;
+    const archingVertical = Math.abs(Math.sin(this.wavePhase * 0.8)) * 0.08;
 
-    // Altura oscilante suave
-    this.model.position.y = this.baseHeight + Math.sin(this.animTimer * 4) * 0.1;
+    this.visualGroup.rotation.y = slitherYaw;
+    this.visualGroup.rotation.z = slitherRoll;
+    this.visualGroup.position.x = lateralSway;
+    this.visualGroup.position.y = archingVertical;
 
-    // Destello de daño
+    // Altura base sobre la pista de datos
+    this.model.position.y = this.baseHeight + Math.sin(this.animTimer * 4.0) * 0.05;
+
+    // 2. Destello de daño
     if (this.hurtTimer > 0) {
       this.hurtTimer -= delta;
-      (this.headMesh.material as THREE.MeshStandardMaterial).emissive.setHex(0xffffff);
+      if (this.glbModel) {
+        this.glbModel.traverse((child) => {
+          if ((child as THREE.Mesh).isMesh && (child as THREE.Mesh).material) {
+            const m = (child as THREE.Mesh).material as THREE.MeshStandardMaterial;
+            if (m.emissive) m.emissive.setHex(0xffffff);
+          }
+        });
+      }
       if (this.hurtTimer <= 0) {
-        (this.headMesh.material as THREE.MeshStandardMaterial).emissive.setHex(0xff007f);
+        if (this.glbModel) {
+          this.glbModel.traverse((child) => {
+            if ((child as THREE.Mesh).isMesh && (child as THREE.Mesh).material) {
+              const m = (child as THREE.Mesh).material as THREE.MeshStandardMaterial;
+              if (m.emissive) m.emissive.setHex(0xd946ef);
+            }
+          });
+        }
         if (this.state === EnemyState.HURT) {
           this.state = EnemyState.CHASE;
         }
@@ -107,7 +121,7 @@ export class WormSpreader extends Enemy {
       this.attackTimer -= delta;
     }
 
-    // Persecución del jugador
+    // 3. Persecución del jugador con evasión en zigzag
     const dirToPlayer = new THREE.Vector3(
       playerPosition.x - this.model.position.x,
       0,
@@ -123,9 +137,8 @@ export class WormSpreader extends Enemy {
       this.state = EnemyState.CHASE;
       dirToPlayer.normalize();
 
-      // Añadir movimiento lateral en zigzag para dificultar el apuntado
       const lateralDir = new THREE.Vector3(-dirToPlayer.z, 0, dirToPlayer.x);
-      const zigZag = Math.sin(this.animTimer * 6.5) * 1.8;
+      const zigZag = Math.sin(this.animTimer * 6.5) * 1.6;
 
       this.model.position.x += (dirToPlayer.x * this.config.speed + lateralDir.x * zigZag) * delta;
       this.model.position.z += (dirToPlayer.z * this.config.speed + lateralDir.z * zigZag) * delta;
