@@ -24,6 +24,13 @@ export class UIManager {
   private storeItemsEl: HTMLElement | null;
   private storeContinueBtnEl: HTMLElement | null;
 
+  // Cyber Wiki
+  private wikiBtnEl: HTMLElement | null;
+  private wikiOverlayEl: HTMLElement | null;
+  private wikiCloseBtnEl: HTMLElement | null;
+  private wikiTabBtns: NodeListOf<HTMLButtonElement>;
+  private wikiTabContents: NodeListOf<HTMLElement>;
+
   // Boss HUD
   private bossHudEl: HTMLElement | null;
   private bossNameEl: HTMLElement | null;
@@ -59,6 +66,12 @@ export class UIManager {
     this.storeItemsEl = document.getElementById('store-items-container');
     this.storeContinueBtnEl = document.getElementById('store-continue-btn');
 
+    this.wikiBtnEl = document.getElementById('wiki-btn');
+    this.wikiOverlayEl = document.getElementById('wiki-overlay');
+    this.wikiCloseBtnEl = document.getElementById('wiki-close-btn');
+    this.wikiTabBtns = document.querySelectorAll('.wiki-tab-btn');
+    this.wikiTabContents = document.querySelectorAll('.wiki-tab-content');
+
     this.bossHudEl = document.getElementById('boss-hud');
     this.bossNameEl = document.getElementById('boss-name');
     this.bossPercentEl = document.getElementById('boss-percent');
@@ -66,6 +79,7 @@ export class UIManager {
 
     if (this.startBtnEl) {
       this.startBtnEl.addEventListener('click', () => {
+        this.showWikiOverlay(false);
         if (this.onStartClicked) {
           this.onStartClicked();
         }
@@ -74,6 +88,7 @@ export class UIManager {
 
     if (this.rangeBtnEl) {
       this.rangeBtnEl.addEventListener('click', () => {
+        this.showWikiOverlay(false);
         if (this.onRangeClicked) {
           this.onRangeClicked();
         }
@@ -87,6 +102,25 @@ export class UIManager {
         }
       });
     }
+
+    if (this.wikiBtnEl) {
+      this.wikiBtnEl.addEventListener('click', () => {
+        this.showWikiOverlay(true);
+      });
+    }
+
+    if (this.wikiCloseBtnEl) {
+      this.wikiCloseBtnEl.addEventListener('click', () => {
+        this.showWikiOverlay(false);
+      });
+    }
+
+    this.wikiTabBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const targetTab = btn.getAttribute('data-tab');
+        this.switchWikiTab(targetTab);
+      });
+    });
   }
 
   public updateScore(score: number): void {
@@ -243,7 +277,37 @@ export class UIManager {
       }
     } else {
       this.overlayEl.classList.add('hidden');
+      this.showWikiOverlay(false);
     }
+  }
+
+  public showWikiOverlay(show: boolean): void {
+    if (!this.wikiOverlayEl) return;
+    if (show) {
+      this.wikiOverlayEl.classList.remove('hidden');
+    } else {
+      this.wikiOverlayEl.classList.add('hidden');
+    }
+  }
+
+  public switchWikiTab(tabName: string | null): void {
+    if (!tabName) return;
+
+    this.wikiTabBtns.forEach((b) => {
+      if (b.getAttribute('data-tab') === tabName) {
+        b.classList.add('active');
+      } else {
+        b.classList.remove('active');
+      }
+    });
+
+    this.wikiTabContents.forEach((c) => {
+      if (c.id === `wiki-tab-${tabName}`) {
+        c.classList.add('active');
+      } else {
+        c.classList.remove('active');
+      }
+    });
   }
 
   public updateBits(bits: number): void {

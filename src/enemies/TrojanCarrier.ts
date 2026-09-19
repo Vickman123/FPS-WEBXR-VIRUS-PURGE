@@ -36,6 +36,7 @@ export class TrojanCarrier extends Enemy {
     if (this.glbModel) {
       this.glbModel.scale.set(1.05, 1.05, 1.05);
       this.glbModel.position.set(0, 0, 0);
+      this.glbModel.rotation.y = -Math.PI / 2; // Rota 90° para que el cañón frontal apunte al frente (-Z)
       this.visualGroup.add(this.glbModel);
 
       this.glbModel.traverse((child) => {
@@ -54,15 +55,15 @@ export class TrojanCarrier extends Enemy {
 
     const hitMat = new THREE.MeshBasicMaterial({ visible: false });
 
-    // Hitbox del chasis blindado
-    const bodyHitGeo = new THREE.BoxGeometry(1.6, 1.2, 1.6);
+    // Hitbox del chasis blindado (alineado al largo frontal del tanque: 1.4m ancho, 1.2m alto, 2.0m largo)
+    const bodyHitGeo = new THREE.BoxGeometry(1.4, 1.2, 2.0);
     this.bodyHitbox = new THREE.Mesh(bodyHitGeo, hitMat);
     this.bodyHitbox.position.set(0, 0.2, 0);
     this.bodyHitbox.userData = { isHitbox: true, isHeadshot: false, isShield: false, enemy: this };
     this.model.add(this.bodyHitbox);
     this.hitboxes.push(this.bodyHitbox);
 
-    // Escudo frontal digital ("svchost.exe / Firewall Shield")
+    // Escudo frontal digital ("svchost.exe / Firewall Shield") frente al cañón
     const shieldGeo = new THREE.PlaneGeometry(1.8, 1.5);
     const shieldMat = new THREE.MeshBasicMaterial({
       color: 0x38bdf8,
@@ -71,7 +72,7 @@ export class TrojanCarrier extends Enemy {
       side: THREE.DoubleSide
     });
     this.shieldMesh = new THREE.Mesh(shieldGeo, shieldMat);
-    this.shieldMesh.position.set(0, 0.4, -0.95);
+    this.shieldMesh.position.set(0, 0.4, -1.1);
     this.visualGroup.add(this.shieldMesh);
 
     const hexWireMat = new THREE.MeshBasicMaterial({
@@ -79,16 +80,16 @@ export class TrojanCarrier extends Enemy {
       wireframe: true
     });
     this.shieldWire = new THREE.Mesh(shieldGeo, hexWireMat);
-    this.shieldWire.position.set(0, 0.4, -0.96);
+    this.shieldWire.position.set(0, 0.4, -1.11);
     this.visualGroup.add(this.shieldWire);
 
     this.shieldMesh.userData = { isHitbox: true, isHeadshot: false, isShield: true, enemy: this };
     this.hitboxes.push(this.shieldMesh);
 
-    // Núcleo vulnerable trasero expuesto (Headshot crítico)
+    // Núcleo vulnerable trasero expuesto (Headshot crítico en la bahía de motor)
     const coreHitGeo = new THREE.SphereGeometry(0.4, 8, 8);
     this.coreHitbox = new THREE.Mesh(coreHitGeo, hitMat);
-    this.coreHitbox.position.set(0, 0.6, 0.75); // Expuesto en la parte posterior
+    this.coreHitbox.position.set(0, 0.6, 0.95); // Expuesto en la parte trasera
     this.coreHitbox.userData = { isHitbox: true, isHeadshot: true, isShield: false, enemy: this };
     this.model.add(this.coreHitbox);
     this.hitboxes.push(this.coreHitbox);

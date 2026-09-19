@@ -34,8 +34,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
-    <script type="module" crossorigin src="./assets/index-BHHTii06.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-yeed3F_k.css">
+    <script type="module" crossorigin src="./assets/index-BuN2_68W.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-CYLEc8pX.css">
   </head>
   <body>
     <!-- 3D Canvas Container -->
@@ -177,6 +177,9 @@
           <button id="range-btn" class="cyber-button secondary-button">
             <span class="btn-text">🎯 CAMPO DE TIRO (PRÁCTICA)</span>
           </button>
+          <button id="wiki-btn" class="cyber-button secondary-button wiki-trigger-btn">
+            <span class="btn-text">📖 BASE DE DATOS // WIKI DE AMENAZAS & ARSENAL</span>
+          </button>
         </div>
 
         <div id="vr-status" class="vr-notice">Soporte WebXR VR listo // Meta Quest Compatible</div>
@@ -206,6 +209,221 @@
         <button id="store-continue-btn" class="cyber-button pulse-btn" style="margin-top: 18px; width: 100%;">
           <span class="btn-text">🚀 CONTINUAR PURGA // SIGUIENTE FASE</span>
         </button>
+      </div>
+    </div>
+
+    <!-- Cyber Wiki Overlay for Desktop -->
+    <div id="wiki-overlay" class="overlay hidden">
+      <div class="overlay-card wiki-card">
+        <div class="cyber-header">
+          <div class="antivirus-icon">📖</div>
+          <div style="flex: 1;">
+            <div class="cyber-badge">BASE DE CONOCIMIENTO // ENDPOINT THREAT DATABASE v4.2</div>
+            <h2 class="game-title" style="font-size: 1.9rem; margin: 0;">CYBER WIKI & MANUAL</h2>
+          </div>
+          <button id="wiki-close-btn" class="wiki-close-btn">✕ CERRAR</button>
+        </div>
+
+        <!-- Tabs de Navegación -->
+        <div class="wiki-tabs">
+          <button class="wiki-tab-btn active" data-tab="mobs">👾 CIBERAMENAZAS (MOBS)</button>
+          <button class="wiki-tab-btn" data-tab="weapons">🔫 ARSENAL (ARMAS)</button>
+          <button class="wiki-tab-btn" data-tab="mechanics">⚙️ SISTEMA & PUNTOS CRÍTICOS</button>
+        </div>
+
+        <!-- Pestaña 1: Mobs -->
+        <div id="wiki-tab-mobs" class="wiki-tab-content active">
+          <!-- Drone -->
+          <div class="wiki-item-card">
+            <div class="wiki-item-header">
+              <span class="wiki-item-title">🔍 VIRUS.RECON.DRONE // V-01</span>
+              <span class="wiki-item-badge blue">NIVEL 1 // ENJAMBRE AÉREO</span>
+            </div>
+            <div class="wiki-stat-grid">
+              <div class="wiki-stat"><span class="stat-lbl">SALUD (HP):</span> <span class="stat-val">80 HP</span></div>
+              <div class="wiki-stat"><span class="stat-lbl">VELOCIDAD:</span> <span class="stat-val">2.4 m/s</span></div>
+              <div class="wiki-stat"><span class="stat-lbl">DAÑO:</span> <span class="stat-val">10</span></div>
+              <div class="wiki-stat"><span class="stat-lbl">COMPORTAMIENTO:</span> <span class="stat-val">Vuelo oscilante senoidal</span></div>
+            </div>
+            <p class="wiki-item-desc">
+              Sondas voladoras no tripuladas que se desplazan en enjambre. Realizan movimientos continuos de cabeceo y balanceo lateral para dificultar el blanco mientras se aproximan al núcleo.
+            </p>
+            <div class="wiki-weakness-box">
+              <span class="weakness-title">🎯 PUNTO DÉBIL / HEADSHOT:</span>
+              <span class="weakness-text">Sensor óptico frontal (ojo azul central). Un impacto certero aquí inflige <strong>2.5x de daño crítico</strong> (100 de daño con el Cañón V1, destrucción instantánea).</span>
+            </div>
+          </div>
+
+          <!-- Gusano -->
+          <div class="wiki-item-card">
+            <div class="wiki-item-header">
+              <span class="wiki-item-title">⚡ WORM.WIN32.REPLICATOR // W-02</span>
+              <span class="wiki-item-badge purple">NIVEL 2 // INVASOR RASTRERO</span>
+            </div>
+            <div class="wiki-stat-grid">
+              <div class="wiki-stat"><span class="stat-lbl">SALUD (HP):</span> <span class="stat-val">50 HP</span></div>
+              <div class="wiki-stat"><span class="stat-lbl">VELOCIDAD:</span> <span class="stat-val">3.8 m/s (RÁPIDO)</span></div>
+              <div class="wiki-stat"><span class="stat-lbl">DAÑO:</span> <span class="stat-val">8</span></div>
+              <div class="wiki-stat"><span class="stat-lbl">COMPORTAMIENTO:</span> <span class="stat-val">Curva ondulante en 'S'</span></div>
+            </div>
+            <p class="wiki-item-desc">
+              Gusano informático biomecánico que repta a ras del suelo a gran velocidad. Se desplaza en zigzag y genera oscilaciones para evitar disparos en línea recta. Si se acerca demasiado, te infecta en segundos.
+            </p>
+            <div class="wiki-weakness-box">
+              <span class="weakness-title">🎯 PUNTO DÉBIL / HEADSHOT:</span>
+              <span class="weakness-text">Nodo cefálico frontal (cabeza). Aunque su movimiento es errático, calcular su curva en 'S' y dispararle a la cabeza lo vaporiza inmediatamente.</span>
+            </div>
+          </div>
+
+          <!-- Tanque Trojan -->
+          <div class="wiki-item-card">
+            <div class="wiki-item-header">
+              <span class="wiki-item-title">🛡️ TROJAN.DROPPER.CARRIER // T-03</span>
+              <span class="wiki-item-badge orange">NIVEL 3 // TANQUE BLINDADO</span>
+            </div>
+            <div class="wiki-stat-grid">
+              <div class="wiki-stat"><span class="stat-lbl">SALUD (HP):</span> <span class="stat-val">180 HP</span></div>
+              <div class="wiki-stat"><span class="stat-lbl">VELOCIDAD:</span> <span class="stat-val">1.6 m/s</span></div>
+              <div class="wiki-stat"><span class="stat-lbl">DAÑO:</span> <span class="stat-val">18</span></div>
+              <div class="wiki-stat"><span class="stat-lbl">DEFENSA:</span> <span class="stat-val">ESCUDO 80% FRONTAL</span></div>
+            </div>
+            <p class="wiki-item-desc">
+              Unidad oruga pesada con chasis blindado y cañón frontal. Avanza directamente hacia el usuario proyectando un escudo de firewall holográfico (svchost.exe) que <strong>absorbe el 80% de todo el daño que reciba de frente</strong>.
+            </p>
+            <div class="wiki-weakness-box critical">
+              <span class="weakness-title">⚠️ VULNERABILIDAD CRÍTICA (NÚCLEO TRASERO):</span>
+              <span class="weakness-text">Su punto crítico es el <strong>núcleo azul expuesto en la parte trasera</strong> del chasis. Muévete en círculo, esquiva su avance frontal o flanquéalo para impactar el motor trasero con <strong>daño crítico x2.5</strong>.</span>
+            </div>
+          </div>
+
+          <!-- Boss Ransomware -->
+          <div class="wiki-item-card">
+            <div class="wiki-item-header">
+              <span class="wiki-item-title">☣️ RANSOMWARE.LOCKBIT.CORE // R-BOSS</span>
+              <span class="wiki-item-badge red">NIVEL 5 // JEFE DE KERNEL</span>
+            </div>
+            <div class="wiki-stat-grid">
+              <div class="wiki-stat"><span class="stat-lbl">SALUD (HP):</span> <span class="stat-val">850 HP</span></div>
+              <div class="wiki-stat"><span class="stat-lbl">DEFENSA:</span> <span class="stat-val">Barrera Hexagonal Giratoria</span></div>
+              <div class="wiki-stat"><span class="stat-lbl">HABILIDAD:</span> <span class="stat-val">Invocación de Esbirros</span></div>
+              <div class="wiki-stat"><span class="stat-lbl">MODO FURIA:</span> <span class="stat-val">Velocidad aumentada a &lt;35% HP</span></div>
+            </div>
+            <p class="wiki-item-desc">
+              Super-entidad hostil que cifra los sectores de la memoria central. Está protegida por anillos reflectantes que giran desviando proyectiles, e invoca periódicamente refuerzos de drones y gusanos. Al caer bajo el 35% de vida entra en sobrecarga de furia (Enrage).
+            </p>
+            <div class="wiki-weakness-box">
+              <span class="weakness-title">🎯 TÁCTICA DE PURGA:</span>
+              <span class="weakness-text">Apunta al núcleo central aprovechando los huecos de rotación del escudo. Cuando entre en modo furia, mantén la distancia y vacía cargadores continuos de SMG o Escopeta para finiquitarlo.</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pestaña 2: Armas -->
+        <div id="wiki-tab-weapons" class="wiki-tab-content">
+          <!-- Antivirus Cannon -->
+          <div class="wiki-item-card">
+            <div class="wiki-item-header">
+              <span class="wiki-item-title">🔫 ANTIVIRUS CANNON // V1</span>
+              <span class="wiki-item-badge cyan">ARMA BASE // PISTOLA DE PRECISIÓN</span>
+            </div>
+            <div class="wiki-stat-grid">
+              <div class="wiki-stat"><span class="stat-lbl">DAÑO BASE:</span> <span class="stat-val">40</span></div>
+              <div class="wiki-stat"><span class="stat-lbl">HEADSHOT:</span> <span class="stat-val">100 (2.5x)</span></div>
+              <div class="wiki-stat"><span class="stat-lbl">CADENCIA:</span> <span class="stat-val">0.18s (~330 RPM)</span></div>
+              <div class="wiki-stat"><span class="stat-lbl">CARGADOR:</span> <span class="stat-val">12 rondas</span></div>
+              <div class="wiki-stat"><span class="stat-lbl">RECARGA:</span> <span class="stat-val">1.2 segundos</span></div>
+              <div class="wiki-stat"><span class="stat-lbl">MIRA LÁSER:</span> <span class="stat-val" style="color: #00f3ff;">Cyan Neón (#00f3ff)</span></div>
+            </div>
+            <p class="wiki-item-desc">
+              Arma de mano reglamentaria del Endpoint Shield. Dispara pulsos de plasma binario con extrema precisión balística sin dispersión. Es la herramienta por excelencia para tiros a la cabeza a media y larga distancia.
+            </p>
+          </div>
+
+          <!-- Scatter Shotgun -->
+          <div class="wiki-item-card">
+            <div class="wiki-item-header">
+              <span class="wiki-item-title">💥 SCATTER SHOTGUN // PURGE SPREAD</span>
+              <span class="wiki-item-badge amber">TIENDA (50 BITS) // CONTROL DE MASAS</span>
+            </div>
+            <div class="wiki-stat-grid">
+              <div class="wiki-stat"><span class="stat-lbl">DAÑO:</span> <span class="stat-val">132 (22 x 6 perdigones)</span></div>
+              <div class="wiki-stat"><span class="stat-lbl">CRÍTICO:</span> <span class="stat-val">2.0x por perdigón</span></div>
+              <div class="wiki-stat"><span class="stat-lbl">CADENCIA:</span> <span class="stat-val">0.55s</span></div>
+              <div class="wiki-stat"><span class="stat-lbl">CARGADOR:</span> <span class="stat-val">8 cartuchos</span></div>
+              <div class="wiki-stat"><span class="stat-lbl">RECARGA:</span> <span class="stat-val">1.5 segundos</span></div>
+              <div class="wiki-stat"><span class="stat-lbl">MIRA LÁSER:</span> <span class="stat-val" style="color: #f59e0b;">Ámbar Balístico (#f59e0b)</span></div>
+            </div>
+            <p class="wiki-item-desc">
+              Escopeta de dispersión electromagnética que expulsa 6 perdigones de alta energía en abanico horizontal. Devastadora para aniquilar múltiples gusanos rastreros de un solo cartucho o frenar en seco cualquier enemigo cercano.
+            </p>
+          </div>
+
+          <!-- Plasma SMG -->
+          <div class="wiki-item-card">
+            <div class="wiki-item-header">
+              <span class="wiki-item-title">⚡ PLASMA SMG // RAPID DEFENDER</span>
+              <span class="wiki-item-badge magenta">TIENDA (80 BITS) // ALTO DPS CONTINUO</span>
+            </div>
+            <div class="wiki-stat-grid">
+              <div class="wiki-stat"><span class="stat-lbl">DAÑO BASE:</span> <span class="stat-val">22</span></div>
+              <div class="wiki-stat"><span class="stat-lbl">HEADSHOT:</span> <span class="stat-val">48 (2.2x)</span></div>
+              <div class="wiki-stat"><span class="stat-lbl">CADENCIA:</span> <span class="stat-val">0.085s (~700 RPM)</span></div>
+              <div class="wiki-stat"><span class="stat-lbl">CARGADOR:</span> <span class="stat-val">36 rondas</span></div>
+              <div class="wiki-stat"><span class="stat-lbl">RECARGA:</span> <span class="stat-val">1.1 segundos (Ultrarrápida)</span></div>
+              <div class="wiki-stat"><span class="stat-lbl">MIRA LÁSER:</span> <span class="stat-val" style="color: #ec4899;">Magenta Neón (#ec4899)</span></div>
+            </div>
+            <p class="wiki-item-desc">
+              Subfusil automático de alta cadencia de plasma ionizado. Descarga una ráfaga sostenida de 700 balas por minuto con recargas instantáneas. La mejor opción para flanquear al tanque y pulverizar al Boss rápidamente.
+            </p>
+          </div>
+        </div>
+
+        <!-- Pestaña 3: Mecánicas -->
+        <div id="wiki-tab-mechanics" class="wiki-tab-content">
+          <div class="wiki-item-card">
+            <div class="wiki-item-header">
+              <span class="wiki-item-title">🎯 SISTEMA DE IMPACTOS CRÍTICOS & PUNTOS DÉBILES</span>
+            </div>
+            <p class="wiki-item-desc">
+              Los impactos en zonas vitales multiplican el daño entre <strong>2.0x y 2.5x</strong>, activan un retículo dorado especial (hitmarker) y emiten una alerta sonora instantánea:
+            </p>
+            <ul class="wiki-list">
+              <li><strong>Virus Recon Drone:</strong> Sensor óptico central.</li>
+              <li><strong>Worm Replicator:</strong> Nodo de cabeza frontal.</li>
+              <li><strong>Trojan Carrier:</strong> Núcleo motor trasero (el frente está blindado al 80%).</li>
+              <li><strong>Ransomware Boss:</strong> Núcleo central expuesto entre giros de la barrera.</li>
+            </ul>
+          </div>
+
+          <div class="wiki-item-card">
+            <div class="wiki-item-header">
+              <span class="wiki-item-title">💾 DATA BITS & MULTIPLICADOR DE COMBO</span>
+            </div>
+            <p class="wiki-item-desc">
+              Cada malware destruido recompensa al defensor con fragmentos de memoria <strong>Data Bits</strong>.
+            </p>
+            <ul class="wiki-list">
+              <li>Encadenar bajas sin recibir daño incrementa el multiplicador hasta <strong>x3.0</strong>.</li>
+              <li>A mayor multiplicador, obtienes más Bits y mayor puntuación final.</li>
+              <li>Recibir daño resetea el multiplicador a x1.0.</li>
+            </ul>
+          </div>
+
+          <div class="wiki-item-card">
+            <div class="wiki-item-header">
+              <span class="wiki-item-title">🛒 TIENDA DEL KERNEL & MEJORAS</span>
+            </div>
+            <p class="wiki-item-desc">
+              Al superar un sector, invierte tus Data Bits en la <strong>Cyber Store</strong>:
+            </p>
+            <ul class="wiki-list">
+              <li><strong>Sobretensión de Plasma:</strong> +15% de daño con todas las armas por nivel.</li>
+              <li><strong>Overclock de Búfer:</strong> -20% de tiempo de recarga por nivel.</li>
+              <li><strong>Blindaje de Kernel:</strong> +25 HP de vida máxima por nivel.</li>
+              <li><strong>Desbloqueo de Armas:</strong> Adquiere la Escopeta y el SMG para usarlos cuando quieras.</li>
+            </ul>
+          </div>
+        </div>
       </div>
     </div>
 

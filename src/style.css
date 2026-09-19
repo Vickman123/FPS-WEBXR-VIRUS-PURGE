@@ -798,3 +798,270 @@ body, html {
   box-shadow: 0 0 15px rgba(0, 0, 0, 0.4) inset;
 }
 
+/* ==========================================================================
+   Cyber Wiki / Base de Conocimiento de Amenazas & Arsenal
+   ========================================================================== */
+.wiki-trigger-btn {
+  border-color: #38bdf8 !important;
+  color: #38bdf8 !important;
+}
+
+.wiki-trigger-btn:hover {
+  background: rgba(56, 189, 248, 0.2) !important;
+  box-shadow: 0 0 20px rgba(56, 189, 248, 0.5) !important;
+}
+
+.wiki-card {
+  max-width: 860px !important;
+  width: 92% !important;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.wiki-close-btn {
+  background: rgba(255, 0, 85, 0.15);
+  border: 1px solid #ff0055;
+  color: #ff0055;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 1.5px;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.wiki-close-btn:hover {
+  background: #ff0055;
+  color: #ffffff;
+  box-shadow: 0 0 15px #ff0055;
+}
+
+.wiki-tabs {
+  display: flex;
+  gap: 10px;
+  margin: 12px 0 16px 0;
+  border-bottom: 1px solid rgba(0, 243, 255, 0.25);
+  padding-bottom: 10px;
+}
+
+.wiki-tab-btn {
+  flex: 1;
+  background: rgba(13, 27, 49, 0.6);
+  border: 1px solid rgba(0, 243, 255, 0.3);
+  color: #94a3b8;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 10px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.wiki-tab-btn:hover {
+  color: #ffffff;
+  border-color: #00f3ff;
+  background: rgba(0, 243, 255, 0.12);
+}
+
+.wiki-tab-btn.active {
+  background: rgba(0, 243, 255, 0.2);
+  border-color: #00f3ff;
+  color: #00f3ff;
+  box-shadow: 0 0 16px rgba(0, 243, 255, 0.35);
+}
+
+.wiki-tab-content {
+  display: none;
+  flex-direction: column;
+  gap: 14px;
+  max-height: 54vh;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.wiki-tab-content.active {
+  display: flex;
+}
+
+.wiki-tab-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.wiki-tab-content::-webkit-scrollbar-track {
+  background: rgba(3, 10, 20, 0.6);
+}
+
+.wiki-tab-content::-webkit-scrollbar-thumb {
+  background: rgba(0, 243, 255, 0.4);
+  border-radius: 3px;
+}
+
+.wiki-tab-content::-webkit-scrollbar-thumb:hover {
+  background: #00f3ff;
+}
+
+.wiki-item-card {
+  background: rgba(8, 20, 36, 0.85);
+  border: 1px solid rgba(0, 243, 255, 0.25);
+  border-left: 4px solid #00f3ff;
+  padding: 16px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.wiki-item-card:hover {
+  border-color: rgba(0, 243, 255, 0.5);
+  box-shadow: 0 0 18px rgba(0, 243, 255, 0.15);
+}
+
+.wiki-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.wiki-item-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 1px;
+  color: #ffffff;
+}
+
+.wiki-item-badge {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 3px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.wiki-item-badge.blue {
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid #38bdf8;
+  color: #38bdf8;
+}
+
+.wiki-item-badge.purple {
+  background: rgba(192, 38, 211, 0.15);
+  border: 1px solid #c026d3;
+  color: #e879f9;
+}
+
+.wiki-item-badge.orange {
+  background: rgba(249, 115, 22, 0.15);
+  border: 1px solid #f97316;
+  color: #fb923c;
+}
+
+.wiki-item-badge.red {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid #ef4444;
+  color: #f87171;
+}
+
+.wiki-item-badge.cyan {
+  background: rgba(0, 243, 255, 0.15);
+  border: 1px solid #00f3ff;
+  color: #00f3ff;
+}
+
+.wiki-item-badge.amber {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid #f59e0b;
+  color: #fbbf24;
+}
+
+.wiki-item-badge.magenta {
+  background: rgba(236, 72, 153, 0.15);
+  border: 1px solid #ec4899;
+  color: #f472b6;
+}
+
+.wiki-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+  background: rgba(3, 10, 20, 0.6);
+  padding: 8px 12px;
+  border-radius: 4px;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+
+.wiki-stat {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.stat-lbl {
+  color: #64748b;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+}
+
+.stat-val {
+  color: #e2e8f0;
+  font-family: var(--font-mono);
+  font-weight: 700;
+}
+
+.wiki-item-desc {
+  font-size: 13px;
+  color: #cbd5e1;
+  line-height: 1.45;
+  margin-bottom: 10px;
+}
+
+.wiki-weakness-box {
+  background: rgba(0, 243, 255, 0.08);
+  border-left: 3px solid #00f3ff;
+  padding: 8px 12px;
+  border-radius: 0 4px 4px 0;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.wiki-weakness-box.critical {
+  background: rgba(249, 115, 22, 0.1);
+  border-left-color: #f97316;
+}
+
+.weakness-title {
+  color: #00f3ff;
+  font-weight: 700;
+  display: block;
+  margin-bottom: 3px;
+  letter-spacing: 1px;
+}
+
+.wiki-weakness-box.critical .weakness-title {
+  color: #fb923c;
+}
+
+.weakness-text {
+  color: #e2e8f0;
+}
+
+.wiki-list {
+  padding-left: 18px;
+  font-size: 13px;
+  color: #cbd5e1;
+  line-height: 1.6;
+}
+
+.wiki-list li strong {
+  color: #00f3ff;
+}
+
+

@@ -30,7 +30,10 @@ export class VRMenu {
   private buttons: VRButton[] = [];
   private raycaster: THREE.Raycaster = new THREE.Raycaster();
   private isShowing: boolean = false;
-  private currentMode: 'GAME_OVER' | 'MAIN_MENU' | 'PAUSE' = 'GAME_OVER';
+  private currentMode: 'GAME_OVER' | 'MAIN_MENU' | 'PAUSE' | 'WIKI' = 'GAME_OVER';
+  private previousMode: 'MAIN_MENU' | 'PAUSE' = 'MAIN_MENU';
+  private currentCamera: THREE.Camera | null = null;
+  private wikiPage: number = 0;
 
   private headerMesh: THREE.Mesh;
   private headerCanvas: HTMLCanvasElement;
@@ -250,6 +253,7 @@ export class VRMenu {
 
   public showPauseMenu(camera: THREE.Camera): void {
     this.currentMode = 'PAUSE';
+    this.currentCamera = camera;
     this.clearButtons();
 
     const ctx = this.headerCtx;
@@ -281,22 +285,22 @@ export class VRMenu {
 
     this.headerTexture.needsUpdate = true;
 
-    this.createButton('▶️ REANUDAR PURGA', 0.12, 0x00f3ff, 0x00ffff, () => {
+    this.createButton('▶️ REANUDAR PURGA', 0.18, 0x00f3ff, 0x00ffff, () => {
       this.hide();
       this.callbacks.onResume();
     });
 
-    this.createButton('🎯 CAMPO DE TIRO (PRÁCTICA)', -0.16, 0xffaa00, 0xffcc00, () => {
+    this.createButton('🎯 CAMPO DE TIRO (PRÁCTICA)', -0.08, 0xffaa00, 0xffcc00, () => {
       this.hide();
       this.callbacks.onTrainingRange();
     });
 
-    this.createButton('🔄 REINICIAR SECTOR', -0.44, 0x38bdf8, 0x7dd3fc, () => {
-      this.hide();
-      this.callbacks.onRestartSector();
+    this.createButton('📖 WIKI DE AMENAZAS & ARSENAL', -0.34, 0x38bdf8, 0x7dd3fc, () => {
+      this.previousMode = 'PAUSE';
+      this.showWiki(camera, 0);
     });
 
-    this.createButton('🏠 MENÚ PRINCIPAL', -0.72, 0x64748b, 0x94a3b8, () => {
+    this.createButton('🏠 MENÚ PRINCIPAL', -0.60, 0x64748b, 0x94a3b8, () => {
       this.hide();
       this.callbacks.onMainMenu();
     });
@@ -308,6 +312,7 @@ export class VRMenu {
 
   public showMainMenu(camera: THREE.Camera): void {
     this.currentMode = 'MAIN_MENU';
+    this.currentCamera = camera;
     this.clearButtons();
 
     const ctx = this.headerCtx;
@@ -338,14 +343,147 @@ export class VRMenu {
 
     this.headerTexture.needsUpdate = true;
 
-    this.createButton('⚔️ INICIAR PURGA (OLEADAS)', -0.05, 0x00f3ff, 0x00ffff, () => {
+    this.createButton('⚔️ INICIAR PURGA (OLEADAS)', 0.08, 0x00f3ff, 0x00ffff, () => {
       this.hide();
       this.callbacks.onStartSurvival();
     });
 
-    this.createButton('🎯 CAMPO DE TIRO (DIANAS)', -0.38, 0xffaa00, 0xffcc00, () => {
+    this.createButton('🎯 CAMPO DE TIRO (DIANAS)', -0.20, 0xffaa00, 0xffcc00, () => {
       this.hide();
       this.callbacks.onTrainingRange();
+    });
+
+    this.createButton('📖 WIKI DE AMENAZAS & ARSENAL', -0.48, 0x38bdf8, 0x7dd3fc, () => {
+      this.previousMode = 'MAIN_MENU';
+      this.showWiki(camera, 0);
+    });
+
+    this.positionInFrontOfCamera(camera);
+    this.group.visible = true;
+    this.isShowing = true;
+  }
+
+  public showWiki(camera: THREE.Camera, page: number = 0): void {
+    this.currentMode = 'WIKI';
+    this.currentCamera = camera;
+    this.wikiPage = Math.max(0, Math.min(2, page));
+    this.clearButtons();
+
+    const ctx = this.headerCtx;
+    ctx.clearRect(0, 0, 1024, 360);
+
+    const grad = ctx.createLinearGradient(0, 0, 0, 360);
+    grad.addColorStop(0, 'rgba(56, 189, 248, 0.35)');
+    grad.addColorStop(1, 'rgba(3, 13, 26, 0.9)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 1024, 360);
+
+    if (this.wikiPage === 0) {
+      // PÁGINA 1: DRON & GUSANO
+      ctx.fillStyle = '#00f3ff';
+      ctx.font = 'bold 36px "Courier New", monospace';
+      ctx.textAlign = 'center';
+      ctx.shadowColor = '#00f3ff';
+      ctx.shadowBlur = 12;
+      ctx.fillText('📖 WIKI [1/3]: DRON AÉREO Y GUSANO', 512, 45);
+
+      ctx.shadowBlur = 0;
+      ctx.font = 'bold 24px "Courier New", monospace';
+      ctx.fillStyle = '#38bdf8';
+      ctx.textAlign = 'left';
+      ctx.fillText('🔹 VIRUS.RECON.DRONE (Nivel 1 // 80 HP // Vel: 2.4)', 60, 95);
+      ctx.fillStyle = '#cbd5e1';
+      ctx.font = '20px "Courier New", monospace';
+      ctx.fillText('• Vuelo senoidal oscilante. Busca agruparse en enjambre.', 80, 128);
+      ctx.fillStyle = '#fbbf24';
+      ctx.fillText('• 🎯 PUNTO DÉBIL: Ojo sensor frontal (Headshot x2.5).', 80, 158);
+
+      ctx.fillStyle = '#e879f9';
+      ctx.font = 'bold 24px "Courier New", monospace';
+      ctx.fillText('🔹 WORM.WIN32.REPLICATOR (Nivel 2 // 50 HP // Vel: 3.8)', 60, 215);
+      ctx.fillStyle = '#cbd5e1';
+      ctx.font = '20px "Courier New", monospace';
+      ctx.fillText('• Rápido y rastrero en curva "S" para esquivar tiros rectos.', 80, 248);
+      ctx.fillStyle = '#fbbf24';
+      ctx.fillText('• 🎯 PUNTO DÉBIL: Nodo de cabeza frontal (Impacto letal).', 80, 278);
+    } else if (this.wikiPage === 1) {
+      // PÁGINA 2: TANQUE TROJAN & BOSS
+      ctx.fillStyle = '#00f3ff';
+      ctx.font = 'bold 36px "Courier New", monospace';
+      ctx.textAlign = 'center';
+      ctx.shadowColor = '#00f3ff';
+      ctx.shadowBlur = 12;
+      ctx.fillText('📖 WIKI [2/3]: TANQUE TROJAN Y BOSS', 512, 45);
+
+      ctx.shadowBlur = 0;
+      ctx.font = 'bold 24px "Courier New", monospace';
+      ctx.fillStyle = '#fb923c';
+      ctx.textAlign = 'left';
+      ctx.fillText('🔸 TROJAN.DROPPER.CARRIER (Nivel 3 // 180 HP // Vel: 1.6)', 60, 95);
+      ctx.fillStyle = '#cbd5e1';
+      ctx.font = '20px "Courier New", monospace';
+      ctx.fillText('• Escudo frontal firewall digital: ¡Absorbe el 80% de daño!', 80, 128);
+      ctx.fillStyle = '#f97316';
+      ctx.fillText('• ⚠️ VULNERABILIDAD: Núcleo trasero expuesto (Flanquear y disparar).', 80, 158);
+
+      ctx.fillStyle = '#ef4444';
+      ctx.font = 'bold 24px "Courier New", monospace';
+      ctx.fillText('☣️ RANSOMWARE.LOCKBIT.CORE (Nivel 5 Boss // 850 HP)', 60, 215);
+      ctx.fillStyle = '#cbd5e1';
+      ctx.font = '20px "Courier New", monospace';
+      ctx.fillText('• Barrera giratoria y esbirros. Fase furia desatada a <35% HP.', 80, 248);
+      ctx.fillStyle = '#fbbf24';
+      ctx.fillText('• 🎯 Dispara entre los huecos del escudo giratorio.', 80, 278);
+    } else {
+      // PÁGINA 3: ARSENAL & TIENDA
+      ctx.fillStyle = '#00f3ff';
+      ctx.font = 'bold 36px "Courier New", monospace';
+      ctx.textAlign = 'center';
+      ctx.shadowColor = '#00f3ff';
+      ctx.shadowBlur = 12;
+      ctx.fillText('📖 WIKI [3/3]: ARSENAL & SISTEMA', 512, 45);
+
+      ctx.shadowBlur = 0;
+      ctx.font = 'bold 22px "Courier New", monospace';
+      ctx.fillStyle = '#00f3ff';
+      ctx.textAlign = 'left';
+      ctx.fillText('🔫 CANNON V1: Dmg 40 (Headshot 100) | 12 balas | Haz Cyan', 60, 95);
+
+      ctx.fillStyle = '#fbbf24';
+      ctx.fillText('💥 SCATTER SHOTGUN: Dmg 132 (22x6) | 8 balas | Haz Ámbar', 60, 140);
+
+      ctx.fillStyle = '#ec4899';
+      ctx.fillText('⚡ PLASMA SMG: Dmg 22 | 700 RPM continuo | 36 balas | Haz Magenta', 60, 185);
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '20px "Courier New", monospace';
+      ctx.fillText('💾 Data Bits: Gana moneda al encadenar bajas con multiplicador.', 60, 235);
+      ctx.fillText('🛒 Cyber Store: Mejora daño, recarga y salud entre sectores.', 60, 270);
+    }
+
+    this.headerTexture.needsUpdate = true;
+
+    // Botones de navegación en VR
+    if (this.wikiPage > 0) {
+      this.createButton('⬅️ PÁGINA ANTERIOR', -0.08, 0x38bdf8, 0x7dd3fc, () => {
+        this.showWiki(camera, this.wikiPage - 1);
+      });
+    }
+
+    if (this.wikiPage < 2) {
+      const nextY = this.wikiPage > 0 ? -0.34 : -0.15;
+      this.createButton('➡️ SIGUIENTE PÁGINA', nextY, 0x00f3ff, 0x00ffff, () => {
+        this.showWiki(camera, this.wikiPage + 1);
+      });
+    }
+
+    const backY = this.wikiPage === 1 ? -0.60 : -0.45;
+    this.createButton('↩️ VOLVER AL MENÚ', backY, 0x64748b, 0x94a3b8, () => {
+      if (this.previousMode === 'PAUSE') {
+        this.showPauseMenu(camera);
+      } else {
+        this.showMainMenu(camera);
+      }
     });
 
     this.positionInFrontOfCamera(camera);
@@ -362,7 +500,7 @@ export class VRMenu {
     return this.isShowing;
   }
 
-  public getMode(): 'GAME_OVER' | 'MAIN_MENU' | 'PAUSE' {
+  public getMode(): 'GAME_OVER' | 'MAIN_MENU' | 'PAUSE' | 'WIKI' {
     return this.currentMode;
   }
 
