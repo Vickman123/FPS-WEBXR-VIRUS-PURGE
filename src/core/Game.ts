@@ -124,7 +124,7 @@ export class Game {
       onStartSurvival: () => this.startSurvivalMode(),
       onRestartSector: () => this.restartSector(),
       onMainMenu: () => this.returnToMainMenu()
-    });
+    }, this.audioManager);
     this.scene.add(this.vrMenu.group);
 
     // 10. Sistema de Enemigos
@@ -146,7 +146,8 @@ export class Game {
     this.vrStore = new VRStore(
       this.currencyManager,
       this.upgradeManager,
-      () => this.continueAfterStore()
+      () => this.continueAfterStore(),
+      this.audioManager
     );
     this.scene.add(this.vrStore.group);
 
@@ -389,6 +390,7 @@ export class Game {
     this.targetRange.disable();
     this.vrMenu.hide();
     this.vrStore.hide();
+    this.isStoreOpen = false;
     this.uiManager.showStoreOverlay(false);
     this.gameState.setMode(GameMode.SURVIVAL);
 
@@ -405,6 +407,7 @@ export class Game {
     this.waveManager.stop();
     this.vrMenu.hide();
     this.vrStore.hide();
+    this.isStoreOpen = false;
     this.uiManager.showStoreOverlay(false);
     this.targetRange.enable();
     this.player.respawn();
@@ -434,6 +437,7 @@ export class Game {
     this.waveManager.stop();
     this.targetRange.disable();
     this.vrStore.hide();
+    this.isStoreOpen = false;
     this.uiManager.showStoreOverlay(false);
     this.gameState.setState(GameStateEnum.MAIN_MENU);
     this.audioManager.stopCombatMusic(1000);
@@ -449,6 +453,7 @@ export class Game {
     this.isStoreOpen = true;
     this.audioManager.duckMusic(0.04, 600);
     if (this.isVRActive) {
+      this.vrMenu.hide();
       this.vrStore.show(this.camera);
       this.audioManager.playStoreOpen();
     } else {
@@ -489,6 +494,7 @@ export class Game {
     this.gameState.setState(GameStateEnum.PAUSED);
     this.audioManager.duckMusic(0.04, 600);
     if (this.isVRActive) {
+      this.vrStore.hide();
       this.vrMenu.showPauseMenu(this.camera);
     } else {
       this.uiManager.showOverlay(true, 'DEPURACIÓN EN PAUSA', 'CONTINUAR');
@@ -501,6 +507,7 @@ export class Game {
   public resumeGame(): void {
     this.vrMenu.hide();
     this.vrStore.hide();
+    this.isStoreOpen = false;
     this.gameState.setState(GameStateEnum.PLAYING);
     this.uiManager.showOverlay(false);
     this.uiManager.showStoreOverlay(false);
@@ -515,8 +522,10 @@ export class Game {
     this.bitDropManager.clearAll();
     this.vrMenu.hide();
     this.vrStore.hide();
+    this.isStoreOpen = false;
     this.uiManager.showStoreOverlay(false);
     this.player.respawn();
+
 
     const weapon = this.weaponManager.getActiveWeapon();
     weapon.currentAmmo = weapon.config.magSize;
@@ -603,9 +612,11 @@ export class Game {
     const delta = Math.min(this.clock.getDelta(), 0.05);
     const state = this.gameState.getState();
 
+    // Actualizar SIEMPRE el subsistema de entrada en cada ciclo para capturar hardware Gamepad en VR
+    this.inputManager.update(delta);
+
     // 1. Estado PLAYING (Combate u Entrenamiento)
     if (state === GameStateEnum.PLAYING && !this.isStoreOpen) {
-      this.inputManager.update(delta);
       this.handlePlayerInput();
       this.player.update(delta);
       this.weaponManager.update(delta);
@@ -636,34 +647,33 @@ export class Game {
       // 2. Estado GAME_OVER, MAIN_MENU, PAUSED o STORE
       this.particleSystem.update(delta);
 
-      // Si está en VR y la Cyber Store 3D está visible
-      if (this.isVRActive && (this.vrStore.isVisible() || this.isStoreOpen)) {
-        this.inputManager.update(delta);
-        const shootTriggered = this.inputManager.consumeShootTriggered();
-        const shootRay = this.player.getShootRay();
-        this.vrStore.update(shootRay.origin, shootRay.direction, shootTriggered);
-
+      if (this.isVRActive) {
+        // Mantener viva la pose del arma y los cálculos de retroceso/láser en VR
+        this.weaponManager.update(delta);
         const weapon = this.weaponManager.getActiveWeapon();
-        weapon.updateLaserAim?.(this.vrStore.group.children);
-      }
-      // Si está en VR y el menú 3D está visible
-      else if (this.isVRActive && this.vrMenu.isVisible()) {
-        this.inputManager.update(delta);
+        const shootRay = this.player.getShootRay();
 
-        // Si se presiona el botón de pausa en el mando izquierdo mientras estamos en pausa, reanudar
-        if (this.inputManager.consumePauseTriggered() && this.gameState.getState() === GameStateEnum.PAUSED) {
-          this.resumeGame();
-          return;
+        // Si la Cyber Store 3D está visible
+        if (this.vrStore.isVisible() || this.isStoreOpen) {
+          const shootTriggered = this.inputManager.consumeShootTriggered();
+          this.vrStore.update(shootRay.origin, shootRay.direction, shootTriggered);
+          weapon.updateLaserAim?.(this.vrStore.group.children);
         }
+        // Si el menú 3D está visible
+        else if (this.vrMenu.isVisible()) {
+          // Si se presiona el botón de pausa en el mando izquierdo mientras estamos en pausa, reanudar
+          if (this.inputManager.consumePauseTriggered() && this.gameState.getState() === GameStateEnum.PAUSED) {
+            this.resumeGame();
+            return;
+          }
 
-        const shootTriggered = this.inputManager.consumeShootTriggered();
-        const shootRay = this.player.getShootRay();
-        this.vrMenu.update(shootRay.origin, shootRay.direction, shootTriggered);
-
-        const weapon = this.weaponManager.getActiveWeapon();
-        weapon.updateLaserAim?.(this.vrMenu.group.children);
+          const shootTriggered = this.inputManager.consumeShootTriggered();
+          this.vrMenu.update(shootRay.origin, shootRay.direction, shootTriggered);
+          weapon.updateLaserAim?.(this.vrMenu.group.children);
+        }
       }
     }
+
 
     this.renderer.render(this.scene, this.camera);
   }

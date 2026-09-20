@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { CurrencyManager } from '../systems/CurrencyManager';
 import { UpgradeManager, UpgradeType } from '../systems/UpgradeManager';
 import { WeaponType } from '../weapons/WeaponManager';
+import { AudioManager } from '../audio/AudioManager';
 
 interface StoreButton {
   mesh: THREE.Mesh;
@@ -28,6 +29,7 @@ export class VRStore {
 
   private currencyManager: CurrencyManager;
   private upgradeManager: UpgradeManager;
+  private audioManager?: AudioManager;
   private onContinueCallback: () => void;
 
   private buttons: StoreButton[] = [];
@@ -37,11 +39,14 @@ export class VRStore {
   constructor(
     currencyManager: CurrencyManager,
     upgradeManager: UpgradeManager,
-    onContinue: () => void
+    onContinue: () => void,
+    audioManager?: AudioManager
   ) {
     this.currencyManager = currencyManager;
     this.upgradeManager = upgradeManager;
     this.onContinueCallback = onContinue;
+    this.audioManager = audioManager;
+
 
     this.group = new THREE.Group();
     this.group.visible = false;
@@ -92,6 +97,7 @@ export class VRStore {
     this.positionInFrontOfCamera(camera);
     this.rebuildButtons();
     this.renderHeader();
+    this.group.updateMatrixWorld(true);
     this.group.visible = true;
     this.isShowing = true;
   }
@@ -262,6 +268,8 @@ export class VRStore {
         this.onContinueCallback();
       }
     );
+
+    this.group.updateMatrixWorld(true);
   }
 
   private createStoreButton(
@@ -359,15 +367,21 @@ export class VRStore {
     if (!this.isShowing) return false;
 
     this.raycaster.set(rayOrigin, rayDirection);
-    this.raycaster.far = 10;
+    this.raycaster.far = 12;
 
     const interactiveMeshes = this.buttons.map((b) => b.mesh);
-    const hits = this.raycaster.intersectObjects(interactiveMeshes, false);
+    // Usar recursive = true para detectar impactos tanto en el marco del botón como en su etiqueta o texto
+    const hits = this.raycaster.intersectObjects(interactiveMeshes, true);
 
     let hoveredIndex = -1;
     if (hits.length > 0) {
-      const hitMesh = hits[0].object;
-      hoveredIndex = this.buttons.findIndex((b) => b.mesh === hitMesh);
+      for (const hit of hits) {
+        const found = this.buttons.findIndex((b) => b.mesh === hit.object || hit.object.parent === b.mesh);
+        if (found !== -1) {
+          hoveredIndex = found;
+          break;
+        }
+      }
     }
 
     for (let i = 0; i < this.buttons.length; i++) {
@@ -379,8 +393,8 @@ export class VRStore {
         const mat = btn.mesh.material as THREE.MeshStandardMaterial;
         if (btn.isHovered) {
           mat.emissive.setHex(btn.hoverColor);
-          mat.emissiveIntensity = 1.8;
-          btn.mesh.scale.set(1.03, 1.05, 1.15);
+          mat.emissiveIntensity = 2.0;
+          btn.mesh.scale.set(1.04, 1.06, 1.2);
         } else {
           mat.emissive.setHex(btn.baseColor);
           mat.emissiveIntensity = 0.6;
@@ -390,6 +404,7 @@ export class VRStore {
     }
 
     if (isTriggerJustPressed && hoveredIndex !== -1) {
+      this.audioManager?.playUIClick();
       this.buttons[hoveredIndex].action();
       return true;
     }
@@ -397,3 +412,4 @@ export class VRStore {
     return hoveredIndex !== -1;
   }
 }
+

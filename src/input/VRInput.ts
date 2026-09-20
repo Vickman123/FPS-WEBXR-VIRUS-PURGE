@@ -16,6 +16,19 @@ export class VRInput implements IInputSource {
   private reloadTriggered: boolean = false;
   private pauseTriggered: boolean = false;
 
+  private prevRightTrigger: boolean = false;
+  private prevRightA: boolean = false;
+  private prevRightB: boolean = false;
+  private prevRightGrip: boolean = false;
+
+  private prevLeftTrigger: boolean = false;
+  private prevLeftX: boolean = false;
+  private prevLeftGrip: boolean = false;
+
+  private hasBoundRightEvents: boolean = false;
+  private hasBoundLeftEvents: boolean = false;
+  private hasBoundSessionEvents: boolean = false;
+
   private moveVector: Vector2D = { x: 0, z: 0 };
 
   // Snap Turn con cerrojo de seguridad (Single-Flick Latch)
@@ -23,7 +36,7 @@ export class VRInput implements IInputSource {
   private canSnapTurn: boolean = true;
   private snapTurnAngle: number = Math.PI / 6; // 30 grados por snap (mucho más cómodo que 45)
 
-  // Pestillo para botón de pausa del mando izquierdo (X / Y)
+  // Pestillo para botón de pausa del mando izquierdo (Y / Thumbstick Click)
   private canPause: boolean = true;
 
   public onRightControllerReady?: (controller: THREE.XRTargetRaySpace, grip: THREE.XRGripSpace) => void;
@@ -53,17 +66,31 @@ export class VRInput implements IInputSource {
         if (data.handedness === 'right') {
           this.rightController = controller;
           this.rightGrip = grip;
-          this.setupRightControllerEvents(controller);
+          if (!this.hasBoundRightEvents) {
+            this.setupRightControllerEvents(controller);
+            this.hasBoundRightEvents = true;
+          }
           if (this.onRightControllerReady) {
             this.onRightControllerReady(controller, grip);
           }
         } else if (data.handedness === 'left') {
           this.leftController = controller;
           this.leftGrip = grip;
-          this.setupLeftControllerEvents(controller);
+          if (!this.hasBoundLeftEvents) {
+            this.setupLeftControllerEvents(controller);
+            this.hasBoundLeftEvents = true;
+          }
           if (this.onLeftControllerReady) {
             this.onLeftControllerReady(controller, grip);
           }
+        }
+      });
+
+      controller.addEventListener('disconnected', () => {
+        if (this.rightController === controller) {
+          this.hasBoundRightEvents = false;
+        } else if (this.leftController === controller) {
+          this.hasBoundLeftEvents = false;
         }
       });
     }
@@ -73,18 +100,22 @@ export class VRInput implements IInputSource {
     controller.addEventListener('selectstart', () => {
       this.isShooting = true;
       this.shootTriggered = true;
-      this.triggerHaptic(0.7, 40, 'right');
+      this.triggerHaptic(0.7, 35, 'right');
     });
 
     controller.addEventListener('selectend', () => {
       this.isShooting = false;
     });
+
+    controller.addEventListener('select', () => {
+      this.shootTriggered = true;
+    });
   }
 
   private setupLeftControllerEvents(controller: THREE.XRTargetRaySpace): void {
     controller.addEventListener('selectstart', () => {
-      this.reloadTriggered = true;
-      this.triggerHaptic(0.35, 30, 'left');
+      this.shootTriggered = true;
+      this.triggerHaptic(0.5, 30, 'left');
     });
   }
 
@@ -98,24 +129,67 @@ export class VRInput implements IInputSource {
     const session = this.renderer.xr.getSession();
     if (!session) return;
 
+    // Escuchar eventos globales de selección en la sesión WebXR como respaldo robusto
+    if (!this.hasBoundSessionEvents) {
+      this.hasBoundSessionEvents = true;
+      session.addEventListener('selectstart', () => {
+        this.isShooting = true;
+        this.shootTriggered = true;
+        this.triggerHaptic(0.7, 35, 'right');
+      });
+      session.addEventListener('selectend', () => {
+        this.isShooting = false;
+      });
+      session.addEventListener('select', () => {
+        this.shootTriggered = true;
+      });
+    }
+
     let leftStick = { x: 0, y: 0 };
     let rightStick = { x: 0, y: 0 };
+
+    let rightTriggerPressed = false;
+    let rightAPressed = false;
+    let rightBPressed = false;
+    let rightGripPressed = false;
+
+    let leftTriggerPressed = false;
+    let leftXPressed = false;
+    let leftGripPressed = false;
 
     for (const source of session.inputSources) {
       if (!source.gamepad) continue;
       const gp = source.gamepad;
       const stick = this.getSafeThumbstick(gp);
 
-      if (source.handedness === 'left') {
+      // Gatillo primario (Índice - Botón 0 en 'xr-standard')
+      const trigger = !!(gp.buttons[0]?.pressed || (gp.buttons[0]?.value !== undefined && gp.buttons[0].value > 0.35));
+
+      if (source.handedness === 'right') {
+        rightStick = stick;
+        rightTriggerPressed = trigger;
+
+        // Botón 1: Grip del mando derecho (Grip / Agarre)
+        rightGripPressed = !!gp.buttons[1]?.pressed;
+
+        // Botón 4: Botón A en mando Oculus Touch (Confirmar / Seleccionar en UI y combate)
+        rightAPressed = !!gp.buttons[4]?.pressed;
+
+        // Botón 5: Botón B en mando Oculus Touch (Recargar)
+        rightBPressed = !!gp.buttons[5]?.pressed;
+
+      } else if (source.handedness === 'left') {
         leftStick = stick;
+        leftTriggerPressed = trigger;
 
-        // Botón Grip del mando izquierdo para recargar
-        if (gp.buttons[1]?.pressed) {
-          this.reloadTriggered = true;
-        }
+        // Botón 1: Grip del mando izquierdo (Recargar)
+        leftGripPressed = !!gp.buttons[1]?.pressed;
 
-        // Botones X (4) o Y (5) o clic de palanca (3) para PAUSAR con cerrojo
-        const isPausePressed = !!(gp.buttons[4]?.pressed || gp.buttons[5]?.pressed || gp.buttons[3]?.pressed);
+        // Botón 4: Botón X (Seleccionar / Confirmar en UI)
+        leftXPressed = !!gp.buttons[4]?.pressed;
+
+        // Botón 5: Botón Y o clic del thumbstick (3) para PAUSAR con cerrojo
+        const isPausePressed = !!(gp.buttons[5]?.pressed || gp.buttons[3]?.pressed);
         if (isPausePressed) {
           if (this.canPause) {
             this.pauseTriggered = true;
@@ -125,14 +199,45 @@ export class VRInput implements IInputSource {
         } else {
           this.canPause = true;
         }
-      } else if (source.handedness === 'right') {
-        rightStick = stick;
-        // Botón Grip o botón A/B del mando derecho para recargar
-        if (gp.buttons[1]?.pressed || gp.buttons[4]?.pressed || gp.buttons[5]?.pressed) {
-          this.reloadTriggered = true;
+      } else if (source.handedness === 'none') {
+        // En caso de controladores genéricos o antes del handedness binding
+        if (trigger) {
+          rightTriggerPressed = true;
         }
       }
     }
+
+    // 1. GESTIÓN DIRECTA DE DISPARO / SELECCIÓN EN UI (Gamepad Polling a 72-90 FPS)
+    // Gatillo derecho O Botón A O Gatillo izquierdo O Botón X
+    const rightSelectEdge = (rightTriggerPressed && !this.prevRightTrigger) || (rightAPressed && !this.prevRightA);
+    const leftSelectEdge = (leftTriggerPressed && !this.prevLeftTrigger) || (leftXPressed && !this.prevLeftX);
+
+    if (rightSelectEdge || leftSelectEdge) {
+      this.shootTriggered = true;
+      this.triggerHaptic(0.7, 35, rightSelectEdge ? 'right' : 'left');
+    }
+
+    this.isShooting = rightTriggerPressed || leftTriggerPressed;
+
+    this.prevRightTrigger = rightTriggerPressed;
+    this.prevRightA = rightAPressed;
+    this.prevLeftTrigger = leftTriggerPressed;
+    this.prevLeftX = leftXPressed;
+
+    // 2. GESTIÓN DE RECARGA (Grip derecho, Grip izquierdo o Botón B)
+    const rightGripEdge = rightGripPressed && !this.prevRightGrip;
+    const leftGripEdge = leftGripPressed && !this.prevLeftGrip;
+    const rightBEdge = rightBPressed && !this.prevRightB;
+
+    if (rightGripEdge || leftGripEdge || rightBEdge) {
+      this.reloadTriggered = true;
+      this.triggerHaptic(0.4, 30, rightGripEdge || rightBEdge ? 'right' : 'left');
+    }
+
+    this.prevRightGrip = rightGripPressed;
+    this.prevLeftGrip = leftGripPressed;
+    this.prevRightB = rightBPressed;
+
 
     // 1. SISTEMA DE SNAP TURN ANTI-MAREO (Single-Flick Latch)
     // El giro solo se ejecuta 1 SOLA VEZ por inclinación.

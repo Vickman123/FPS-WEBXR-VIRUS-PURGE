@@ -103,6 +103,13 @@ export class AudioManager {
     this.playClick(now + 1.05, 1100, 0.09, 0.6);
   }
 
+  public playUIClick(): void {
+    if (!this.ctx || !this.masterGain || this.isMuted) return;
+    const now = this.ctx.currentTime;
+    this.playClick(now, 1150, 0.045, 0.45);
+  }
+
+
   private playClick(time: number, freq: number, duration: number, vol: number): void {
     if (!this.ctx || !this.masterGain) return;
     const osc = this.ctx.createOscillator();

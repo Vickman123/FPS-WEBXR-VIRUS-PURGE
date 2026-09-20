@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { AudioManager } from '../audio/AudioManager';
 
 export interface VRMenuStats {
   score: number;
@@ -44,11 +45,14 @@ export class VRMenu {
   private border: THREE.LineSegments;
 
   private callbacks: VRMenuCallbacks;
+  private audioManager?: AudioManager;
 
-  constructor(callbacks: VRMenuCallbacks) {
+  constructor(callbacks: VRMenuCallbacks, audioManager?: AudioManager) {
     this.callbacks = callbacks;
+    this.audioManager = audioManager;
     this.group = new THREE.Group();
     this.group.visible = false;
+
 
     // 1. Panel de fondo translúcido cyberpunk
     const bgGeo = new THREE.PlaneGeometry(2.4, 2.1);
@@ -247,6 +251,7 @@ export class VRMenu {
     });
 
     this.positionInFrontOfCamera(camera);
+    this.group.updateMatrixWorld(true);
     this.group.visible = true;
     this.isShowing = true;
   }
@@ -306,6 +311,7 @@ export class VRMenu {
     });
 
     this.positionInFrontOfCamera(camera);
+    this.group.updateMatrixWorld(true);
     this.group.visible = true;
     this.isShowing = true;
   }
@@ -359,6 +365,7 @@ export class VRMenu {
     });
 
     this.positionInFrontOfCamera(camera);
+    this.group.updateMatrixWorld(true);
     this.group.visible = true;
     this.isShowing = true;
   }
@@ -487,6 +494,7 @@ export class VRMenu {
     });
 
     this.positionInFrontOfCamera(camera);
+    this.group.updateMatrixWorld(true);
     this.group.visible = true;
     this.isShowing = true;
   }
@@ -529,10 +537,11 @@ export class VRMenu {
     if (!this.isShowing) return false;
 
     this.raycaster.set(rayOrigin, rayDirection);
-    this.raycaster.far = 10;
+    this.raycaster.far = 12;
 
     const buttonMeshes = this.buttons.map((b) => b.mesh);
-    const intersections = this.raycaster.intersectObjects(buttonMeshes, false);
+    // Usar recursive = true para intersectar el cubo o sus elementos hijos de etiqueta
+    const intersections = this.raycaster.intersectObjects(buttonMeshes, true);
 
     let clicked = false;
 
@@ -541,14 +550,18 @@ export class VRMenu {
     }
 
     if (intersections.length > 0) {
-      const hitMesh = intersections[0].object as THREE.Mesh;
-      const hoveredBtn = this.buttons.find((b) => b.mesh === hitMesh);
+      let hoveredBtn: VRButton | undefined;
+      for (const hit of intersections) {
+        hoveredBtn = this.buttons.find((b) => b.mesh === hit.object || hit.object.parent === b.mesh);
+        if (hoveredBtn) break;
+      }
 
       if (hoveredBtn) {
         hoveredBtn.isHovered = true;
 
         if (isTriggerJustPressed) {
           clicked = true;
+          this.audioManager?.playUIClick();
           hoveredBtn.action();
         }
       }
@@ -558,7 +571,7 @@ export class VRMenu {
       const mat = btn.mesh.material as THREE.MeshStandardMaterial;
       if (btn.isHovered) {
         mat.emissive.setHex(btn.hoverColor);
-        mat.emissiveIntensity = 1.8;
+        mat.emissiveIntensity = 2.0;
         btn.mesh.scale.set(1.04, 1.06, 1.2);
       } else {
         mat.emissive.setHex(btn.baseColor);
@@ -570,3 +583,4 @@ export class VRMenu {
     return clicked;
   }
 }
+
