@@ -53,6 +53,7 @@ export class Game {
   public targetRange: TargetRange;
 
   public isVRActive: boolean = false;
+  public isStoreOpen: boolean = false;
 
   constructor() {
     this.clock = new THREE.Clock();
@@ -273,6 +274,7 @@ export class Game {
 
     this.desktopInput.onLockChange = (locked) => {
       if (this.isVRActive) return;
+      if (this.isStoreOpen) return; // Cursor libre legítimo para interactuar con la Cyber Store
 
       if (!locked && this.gameState.getState() === GameStateEnum.PLAYING) {
         this.pauseGame();
@@ -444,11 +446,13 @@ export class Game {
   }
 
   public openStore(): void {
+    this.isStoreOpen = true;
     this.audioManager.duckMusic(0.04, 600);
     if (this.isVRActive) {
       this.vrStore.show(this.camera);
       this.audioManager.playStoreOpen();
     } else {
+      this.uiManager.showOverlay(false);
       this.uiManager.showStoreOverlay(true, this.upgradeManager, this.currencyManager);
       this.audioManager.playStoreOpen();
       if (document.pointerLockElement) {
@@ -458,9 +462,12 @@ export class Game {
   }
 
   public continueAfterStore(): void {
+    this.isStoreOpen = false;
     this.vrStore.hide();
     this.uiManager.showStoreOverlay(false);
+    this.uiManager.showOverlay(false);
     this.audioManager.unduckMusic(1000);
+    this.gameState.setState(GameStateEnum.PLAYING);
     if (!this.isVRActive) {
       this.desktopInput.requestLock();
     }
@@ -468,6 +475,7 @@ export class Game {
   }
 
   public togglePause(): void {
+    if (this.isStoreOpen) return;
     const currentState = this.gameState.getState();
     if (currentState === GameStateEnum.PLAYING) {
       this.pauseGame();
@@ -477,6 +485,7 @@ export class Game {
   }
 
   public pauseGame(): void {
+    if (this.isStoreOpen) return;
     this.gameState.setState(GameStateEnum.PAUSED);
     this.audioManager.duckMusic(0.04, 600);
     if (this.isVRActive) {
@@ -595,7 +604,7 @@ export class Game {
     const state = this.gameState.getState();
 
     // 1. Estado PLAYING (Combate u Entrenamiento)
-    if (state === GameStateEnum.PLAYING) {
+    if (state === GameStateEnum.PLAYING && !this.isStoreOpen) {
       this.inputManager.update(delta);
       this.handlePlayerInput();
       this.player.update(delta);
@@ -628,7 +637,7 @@ export class Game {
       this.particleSystem.update(delta);
 
       // Si está en VR y la Cyber Store 3D está visible
-      if (this.isVRActive && this.vrStore.isVisible()) {
+      if (this.isVRActive && (this.vrStore.isVisible() || this.isStoreOpen)) {
         this.inputManager.update(delta);
         const shootTriggered = this.inputManager.consumeShootTriggered();
         const shootRay = this.player.getShootRay();

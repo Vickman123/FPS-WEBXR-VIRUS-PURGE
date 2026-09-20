@@ -245,9 +245,8 @@ export class WaveManager {
       'combo'
     );
 
-    // 2. Comprobar si cada 3 fases se debe abrir la Cyber Store
-    const completedPhaseNum = this.currentPhaseIndex + 1;
-    if (completedPhaseNum % 3 === 0 && this.onOpenStore) {
+    // 2. Abrir la Cyber Store al completar cada sector para adquirir mejoras y armas
+    if (this.onOpenStore) {
       this.isInStore = true;
       this.onOpenStore();
       return;
@@ -262,6 +261,8 @@ export class WaveManager {
     this.isInStore = false;
     this.currentPhaseIndex++;
     this.preparePhase(this.currentPhaseIndex);
+    this.isIntermission = true;
+    this.intermissionTimer = 1.8;
   }
 
   private spawnEnemyAtRandomPoint(type: EnemyType): void {
@@ -289,11 +290,16 @@ export class WaveManager {
     if (this.currentPhaseIndex < this.phases.length) {
       return this.phases[this.currentPhaseIndex];
     }
+    const num = this.currentPhaseIndex + 1;
     return {
-      phaseNumber: this.currentPhaseIndex + 1,
-      sectorName: `SECTOR PROFUNDO // NÚCLEO KERNEL`,
-      threatLevel: 'NIVEL CRÍTICO',
-      enemies: [],
+      phaseNumber: num,
+      sectorName: `SECTOR PROFUNDO // NIVEL DE INFECCIÓN ${num}`,
+      threatLevel: 'NIVEL OMEGA: INVASIÓN MASIVA',
+      enemies: [
+        { type: 'virus', count: 6 + num },
+        { type: 'worm', count: 4 + Math.floor(num / 2) },
+        { type: 'trojan', count: 2 + Math.floor(num / 3) }
+      ],
       clearBonusHealth: 35,
       clearBonusScore: 2000
     };
