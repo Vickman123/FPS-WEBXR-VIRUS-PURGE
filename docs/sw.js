@@ -1,4 +1,4 @@
-const CACHE_NAME = 'virus-purge-v7';
+const CACHE_NAME = 'virus-purge-v8';
 
 // Lista de activos estáticos
 const ASSETS_TO_CACHE = [

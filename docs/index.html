@@ -34,8 +34,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
-    <script type="module" crossorigin src="./assets/index-BuN2_68W.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-CYLEc8pX.css">
+    <script type="module" crossorigin src="./assets/index-GeGgi3jr.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index--z8WGKIP.css">
   </head>
   <body>
     <!-- 3D Canvas Container -->
@@ -119,74 +119,188 @@
       </div>
     </div>
 
-    <!-- Antivirus "SYSTEM DEFENDER" Dashboard Overlay -->
-    <div id="overlay" class="overlay">
-      <div class="overlay-card terminal-card">
-        <div class="cyber-header">
-          <div class="antivirus-icon">🛡️</div>
-          <div>
-            <div class="cyber-badge">SYSTEM DEFENDER // ENDPOINT SHIELD v4.2</div>
-            <h1 class="game-title">VIRUS PURGE</h1>
-            <div class="developer-tag">⚡ DESARROLLADO POR VÍCTOR CARREÑO ⚡</div>
+    <!-- Antivirus "SYSTEM DEFENDER" Main Menu Overlay -->
+    <div id="overlay" class="overlay main-menu-overlay">
+      <!-- Top Status Bar -->
+      <header class="menu-top-bar">
+        <div class="menu-top-left">
+          <span class="hud-mono-tag">SYSTEM DEFENDER // v4.2</span>
+          <span class="hud-accent-line"></span>
+        </div>
+        <div class="menu-top-right">
+          <span class="hud-mono-tag">SECURE &nbsp;|&nbsp; ISOLATE &nbsp;|&nbsp; PURGE</span>
+          <span class="hud-accent-dash"></span>
+        </div>
+      </header>
+
+      <!-- Center Content & Decals Layout -->
+      <main class="menu-center-container">
+        <!-- Left Flank Decal -->
+        <aside class="menu-flank flank-left">
+          <div class="flank-slashes">//</div>
+          <div class="flank-text">
+            PURGE<br />
+            THE THREAT<br />
+            RESTORE<br />
+            THE FUTURE
           </div>
-        </div>
+        </aside>
 
-        <p class="subtitle">ALERTA DE SEGURIDAD: BRECHA MASIVA DE MALWARE DETECTADA</p>
-
-        <!-- Diagnóstico del Sistema -->
-        <div class="sys-metrics-panel">
-          <div class="metric-row">
-            <span class="metric-name">USO DE CPU:</span>
-            <div class="metric-bar"><div class="m-fill danger" style="width: 92%;"></div></div>
-            <span class="metric-val danger-text">92% CRÍTICO</span>
+        <!-- Main Hero & Interactive Interface -->
+        <section class="menu-hero-card">
+          <!-- Cyber Shield Emblem with Crimson Core -->
+          <div class="shield-emblem">
+            <svg class="shield-svg" viewBox="0 0 100 120" width="62" height="76" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="shieldRimGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#94a3b8"/>
+                  <stop offset="45%" stop-color="#e2e8f0"/>
+                  <stop offset="100%" stop-color="#475569"/>
+                </linearGradient>
+                <linearGradient id="shieldFaceL" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#1e293b"/>
+                  <stop offset="100%" stop-color="#0a101d"/>
+                </linearGradient>
+                <linearGradient id="shieldFaceR" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#334155"/>
+                  <stop offset="100%" stop-color="#0f172a"/>
+                </linearGradient>
+                <filter id="crimsonGlow" x="-50%" y="-50%" width="200%" height="200%">
+                  <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur"/>
+                  <feMerge>
+                    <feMergeNode in="blur"/>
+                    <feMergeNode in="blur"/>
+                    <feMergeNode in="SourceGraphic"/>
+                  </feMerge>
+                </filter>
+              </defs>
+              <!-- Outer Metallic Rim -->
+              <path d="M50 6 L88 20 V62 C88 86 68 106 50 114 C32 106 12 86 12 62 V20 Z" fill="url(#shieldRimGrad)" stroke="#38bdf8" stroke-width="1.5" stroke-opacity="0.7"/>
+              <!-- Left Facet -->
+              <path d="M50 12 L18 24 V62 C18 82 34 99 50 107 V12 Z" fill="url(#shieldFaceL)"/>
+              <!-- Right Facet -->
+              <path d="M50 12 L82 24 V62 C82 82 66 99 50 107 V12 Z" fill="url(#shieldFaceR)"/>
+              <!-- Red Core Breach Slash -->
+              <path d="M50 14 L54 36 L43 54 L55 74 L46 94 L50 104 L45 94 L52 74 L40 54 L51 36 Z" fill="#ff0055" filter="url(#crimsonGlow)"/>
+              <path d="M50 16 L53 36 L44 54 L54 74 L47 92 L50 100" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
           </div>
-          <div class="metric-row">
-            <span class="metric-name">MEMORIA RAM:</span>
-            <div class="metric-bar"><div class="m-fill warning" style="width: 86%;"></div></div>
-            <span class="metric-val warning-text">86% INFECTADO</span>
+
+          <!-- Game Title -->
+          <div class="menu-title-block">
+            <h1 class="game-title">
+              <span class="title-virus">VIRUS</span>
+              <span class="title-purge">PURGE</span>
+            </h1>
+            <div class="menu-subtitle">ENDPOINT SHIELD ACTIVE</div>
           </div>
-          <div class="metric-row">
-            <span class="metric-name">INTEGRIDAD KERNEL:</span>
-            <div class="metric-bar"><div class="m-fill danger" style="width: 35%;"></div></div>
-            <span class="metric-val danger-text">COMPROMETIDA</span>
+
+          <!-- Threat Detected Warning Line -->
+          <div class="threat-detected-container">
+            <span class="threat-hairline left"></span>
+            <div class="threat-badge">
+              <span class="threat-pulsing-dot"></span>
+              <span class="threat-text">THREAT DETECTED</span>
+            </div>
+            <span class="threat-hairline right"></span>
           </div>
-        </div>
 
-        <!-- Lista de Amenazas Detectadas -->
-        <div class="threat-log">
-          <div class="threat-title">AMENAZAS IDENTIFICADAS EN EL BUS DE DATOS:</div>
-          <div class="threat-item red">☣️ RANSOMWARE.LOCKBIT.CORE [NIVEL 5 // KERNEL]</div>
-          <div class="threat-item orange">🛡️ TROJAN.DROPPER.CARRIER [NIVEL 3 // BLINDADO]</div>
-          <div class="threat-item purple">⚡ WORM.WIN32.REPLICATOR [NIVEL 2 // EVASIVO]</div>
-          <div class="threat-item blue">🔍 VIRUS.RECON.DRONE [NIVEL 1 // ENJAMBRE]</div>
-        </div>
+          <!-- Action Buttons Group -->
+          <div class="menu-actions-stack">
+            <!-- Primary Action: START PURGE -->
+            <button id="start-btn" class="cyber-btn-primary">
+              <span class="corner-tick-tl">1"</span>
+              <svg class="play-svg-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <polygon points="4,2 14,8 4,14" fill="#00f3ff"/>
+              </svg>
+              <span class="btn-text">START PURGE</span>
+              <span class="corner-tick-br"></span>
+            </button>
 
-        <!-- Controles -->
-        <div class="controls-guide">
-          <div class="control-item"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span>Desplazamiento por la Placa Base</span></div>
-          <div class="control-item"><kbd>MOUSE</kbd><span>Apuntar herramienta de purga</span></div>
-          <div class="control-item"><kbd>CLICK IZQ</kbd><span>Descarga de paquetes de purga</span></div>
-          <div class="control-item"><kbd>R</kbd><span>Recargar búfer de memoria</span></div>
-          <div class="control-item"><kbd>ESC</kbd><span>Pausa / Liberar cursor</span></div>
-        </div>
+            <!-- Secondary Actions Row: FIRING RANGE + THREAT DATABASE -->
+            <div class="secondary-btn-row">
+              <button id="range-btn" class="cyber-btn-secondary left-cut">
+                <svg class="sec-svg-icon" width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="7" stroke="#38bdf8" stroke-width="1.8"/>
+                  <circle cx="12" cy="12" r="2" fill="#38bdf8"/>
+                  <line x1="12" y1="1" x2="12" y2="5" stroke="#38bdf8" stroke-width="1.8"/>
+                  <line x1="12" y1="19" x2="12" y2="23" stroke="#38bdf8" stroke-width="1.8"/>
+                  <line x1="1" y1="12" x2="5" y2="12" stroke="#38bdf8" stroke-width="1.8"/>
+                  <line x1="19" y1="12" x2="23" y2="12" stroke="#38bdf8" stroke-width="1.8"/>
+                </svg>
+                <span class="btn-text">FIRING RANGE</span>
+              </button>
 
-        <div class="menu-button-group" style="display: flex; flex-direction: column; gap: 12px; width: 100%; margin-top: 12px;">
-          <button id="start-btn" class="cyber-button pulse-btn">
-            <span class="btn-text">INICIAR PROTOCOLO DE PURGA</span>
-          </button>
-          <button id="range-btn" class="cyber-button secondary-button">
-            <span class="btn-text">🎯 CAMPO DE TIRO (PRÁCTICA)</span>
-          </button>
-          <button id="wiki-btn" class="cyber-button secondary-button wiki-trigger-btn">
-            <span class="btn-text">📖 BASE DE DATOS // WIKI DE AMENAZAS & ARSENAL</span>
-          </button>
-        </div>
+              <button id="wiki-btn" class="cyber-btn-secondary right-cut wiki-trigger-btn">
+                <svg class="sec-svg-icon" width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <path d="M2 6 C6 4 10 4 12 6 C14 4 18 4 22 6 V19 C18 17 14 17 12 19 C10 17 6 17 2 19 Z" stroke="#38bdf8" stroke-width="1.8" stroke-linejoin="round"/>
+                  <line x1="12" y1="6" x2="12" y2="19" stroke="#38bdf8" stroke-width="1.8"/>
+                </svg>
+                <span class="btn-text">THREAT DATABASE</span>
+              </button>
+            </div>
+          </div>
 
-        <div id="vr-status" class="vr-notice">Soporte WebXR VR listo // Meta Quest Compatible</div>
-        <div class="author-credits-badge">
-          🛡️ ARQUITECTURA & PROGRAMACIÓN: <strong style="color: #00f3ff; letter-spacing: 1px;">VÍCTOR CARREÑO</strong>
+          <!-- Controls Ribbon -->
+          <div class="menu-controls-ribbon">
+            <div class="ctrl-group">
+              <div class="keycap-row">
+                <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>
+              </div>
+              <span class="ctrl-lbl">MOVE</span>
+            </div>
+            <span class="ctrl-pipe">|</span>
+            <div class="ctrl-group">
+              <svg class="mouse-svg" width="14" height="20" viewBox="0 0 14 20" fill="none">
+                <rect x="1" y="1" width="12" height="18" rx="6" stroke="#38bdf8" stroke-width="1.5"/>
+                <path d="M7 4V8" stroke="#38bdf8" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+              <span class="ctrl-lbl">AIM</span>
+            </div>
+            <span class="ctrl-pipe">|</span>
+            <div class="ctrl-group">
+              <svg class="mouse-svg" width="14" height="20" viewBox="0 0 14 20" fill="none">
+                <rect x="1" y="1" width="12" height="18" rx="6" stroke="#38bdf8" stroke-width="1.5"/>
+                <path d="M1 7 C1 3.68 3.68 1 7 1 V9 H1 Z" fill="rgba(0, 243, 255, 0.5)"/>
+                <path d="M7 4V8" stroke="#00f3ff" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+              <span class="ctrl-lbl">FIRE</span>
+            </div>
+            <span class="ctrl-pipe">|</span>
+            <div class="ctrl-group">
+              <kbd>R</kbd>
+              <span class="ctrl-lbl">RELOAD</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Right Flank Decal -->
+        <aside class="menu-flank flank-right">
+          <div class="flank-text align-right">
+            GOOD<br />
+            SYSTEMS<br />
+            BETTER<br />
+            PEOPLE
+          </div>
+        </aside>
+      </main>
+
+      <!-- Bottom Footer Bar -->
+      <footer class="menu-footer-bar">
+        <div class="footer-block-left">
+          <span class="footer-line-1">A CLEANER</span>
+          <span class="footer-line-2">DIGITAL TOMORROW <span class="footer-accent-line"></span></span>
         </div>
-      </div>
+        <div class="footer-block-center">
+          <span class="footer-tag">WEBXR</span>
+          <span class="footer-dot"></span>
+          <span class="footer-tag highlight">DESKTOP MODE</span>
+        </div>
+        <div class="footer-block-right">
+          <span class="footer-line-1">DEVELOPED BY</span>
+          <span class="footer-line-2">VÍCTOR CARREÑO <span class="footer-accent-line"></span></span>
+        </div>
+      </footer>
     </div>
 
     <!-- Cyber Store Overlay for Desktop -->

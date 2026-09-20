@@ -267,13 +267,19 @@ export class UIManager {
     if (!this.overlayEl) return;
     if (show) {
       this.overlayEl.classList.remove('hidden');
-      if (title) {
-        const titleEl = this.overlayEl.querySelector('.game-title');
-        if (titleEl) titleEl.textContent = title;
+      const titleEl = this.overlayEl.querySelector('.game-title');
+      if (titleEl) {
+        if (title) {
+          titleEl.innerHTML = `<span class="title-virus">${title}</span>`;
+        } else {
+          titleEl.innerHTML = `<span class="title-virus">VIRUS</span><span class="title-purge">PURGE</span>`;
+        }
       }
-      if (btnText && this.startBtnEl) {
+      if (this.startBtnEl) {
         const btnSpan = this.startBtnEl.querySelector('.btn-text');
-        if (btnSpan) btnSpan.textContent = btnText;
+        if (btnSpan) {
+          btnSpan.textContent = btnText || 'START PURGE';
+        }
       }
     } else {
       this.overlayEl.classList.add('hidden');
